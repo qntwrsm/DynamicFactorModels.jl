@@ -16,6 +16,7 @@ using
     LinearAlgebra,
     Distributions
 
+import Base: show
 import Statistics: mean, var, cov
 
 export
@@ -33,6 +34,7 @@ export
     spatial, weights                    # spatial
 
 include("types.jl")
+include("show.jl")
 include("interface.jl")
 
 end
