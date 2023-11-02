@@ -14,6 +14,7 @@ module DynamicFactorModels
 
 using 
     LinearAlgebra,
+    FillArrays,
     Distributions
 
 import Base: show

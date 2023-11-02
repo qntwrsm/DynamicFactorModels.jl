@@ -21,10 +21,12 @@ abstract type AbstractMeanSpecification end
 """
     ZeroMean <: AbstractMeanSpecification
 
-Mean specification with constant zero mean of `type`, used purely for dispatch.
+Mean specification with constant zero mean of `type` and size `n`, used purely
+for dispatch.
 """
 struct ZeroMean{T<:DataType} <: AbstractMeanSpecification
     type::T
+    n::Integer
 end
 
 """
@@ -48,7 +50,7 @@ end
 # methods
 slopes(μ::Exogenous) = μ.β
 regressors(μ::Exogenous) = μ.X
-mean(μ::ZeroMean) = zero(μ.type)
+mean(μ::ZeroMean) = Zeros(μ.type, μ.n)
 mean(μ::Exogenous) = slopes(μ) * regressors(μ)
 
 # error models
