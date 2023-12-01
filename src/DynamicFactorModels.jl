@@ -14,10 +14,11 @@ module DynamicFactorModels
 
 using 
     LinearAlgebra,
+    Random,
     FillArrays,
     Distributions
 
-import Base: show
+import Base: show, size, copy
 import Statistics: mean, var, cov
 
 export
@@ -32,10 +33,14 @@ export
     factors, loadings, dynamics,        # factors
     slopes, regressors,                 # mean
     cov, var,                           # distribution
-    spatial, weights                    # spatial
+    spatial, weights,                   # spatial
+
+    # simulate
+    simulate
 
 include("types.jl")
 include("show.jl")
 include("interface.jl")
+include("utilities.jl")
 
 end

@@ -14,7 +14,7 @@ interface.jl
     DynamicFactorModel(y, R, μ, ε) -> model
 
 Construct a dynamic factor model with data `y`, mean specification `μ`, error
-model `ε`, `R` dynamic factors.
+model `ε`, and `R` dynamic factors.
 """
 function DynamicFactorModel(
     y::AbstractMatrix,
@@ -41,7 +41,7 @@ end
 """
     DynamicFactorModel(dims, μ, ε) -> model
 
-Construct a dynamic factor model with dimensions `dims` (n, T, R), mean
+Construct a dynamic factor model with dimensions `dims` ``(n, T, R)```, mean
 specification `μ`, and error model `ε`.
 """
 function DynamicFactorModel(
@@ -121,3 +121,22 @@ function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix, spatial
     return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal(Zeros(n), I(n)), ρ, W)
 end
 
+"""
+    simulate(model; burn=100, rng=Xoshiro()) -> sim
+
+Simulate data from the dynamic factor model described by `model` and
+return a new instance with the simulated data, using random number generator
+`rng` and apply a burn-in period of `burn`.
+"""
+function simulate(model::DynamicFactorModel; burn::Integer=100, rng::AbstractRNG=Xoshiro())
+    # factor process
+    F_sim = simulate(process(model), burn=burn, rng=rng)
+
+    # error distribution
+    ε_sim = simulate(errors(model), rng=rng)
+
+    # simulate data
+    y_sim = loadings(model) * factors(F_sim) + resid(ε_sim)
+
+    return DynamicFactorModel(y_sim, size(F_sim), copy(mean(model)), ε_sim)
+end

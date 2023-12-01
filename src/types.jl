@@ -52,6 +52,8 @@ slopes(μ::Exogenous) = μ.β
 regressors(μ::Exogenous) = μ.X
 mean(μ::ZeroMean) = Zeros(μ.type, μ.n)
 mean(μ::Exogenous) = slopes(μ) * regressors(μ)
+Base.copy(μ::ZeroMean) = ZeroMean(μ.type, μ.n)
+Base.copy(μ::Exogenous) = Exogenous(copy(regressors(μ)), copy(slopes(μ)))
 
 # error models
 """
@@ -169,6 +171,7 @@ function poly(ε::SpatialMovingAverage)
         return I + Diagonal(spatial(ε)) * weights(ε)
     end
 end
+Base.copy(dist::AbstractMvNormal) = MvNormal(copy(mean(dist)), cov(dist))
 
 # factor process
 struct FactorProcess{
@@ -194,6 +197,7 @@ dynamics(F::FactorProcess) = F.ϕ
 factors(F::FactorProcess) = F.f
 dist(F::FactorProcess) = F.dist
 cov(F::FactorProcess) = cov(dist(F))
+Base.size(F::FactorProcess) = size(factors(F), 1)
 
 # dynamic factor model
 """
@@ -239,3 +243,4 @@ loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model.F))
+Base.size(model::DynamicFactorModel) = (size(data(model))..., size(factors(model))...)
