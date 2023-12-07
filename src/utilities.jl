@@ -17,10 +17,10 @@ with a burn-in period of `burn` using the random number generator `rng`.
 """
 function simulate(F::FactorProcess; burn::Integer=100, rng::AbstractRNG=Xoshiro())
     # burn-in
-    f_prev = rand(rng, dist(F))
+    f_prev = randn(rng, size(F))
     f_next = similar(f_prev)
     for _ = 1:burn
-        f_next .= dynamics(F) * f_prev + rand(rng, dist(F))
+        f_next .= dynamics(F) * f_prev + randn(rng, size(F))
         f_prev .= f_next
     end
 
@@ -34,7 +34,7 @@ function simulate(F::FactorProcess; burn::Integer=100, rng::AbstractRNG=Xoshiro(
         end
     end
 
-    return FactorProcess(copy(dynamics(F)), f_sim, copy(dist(F)))
+    return FactorProcess(copy(dynamics(F)), f_sim)
 end
 
 """
@@ -43,14 +43,14 @@ end
 Simulate from the error distribution `ε` using the random number generator 
 `rng`.
 """
-simulate(ε::Simple; rng::AbstractRNG=Xoshiro()) = Simple(rand(rng, dist(ε), size(resid(ε), 2)), copy(dist(ε)))
+simulate(ε::Simple; rng::AbstractRNG=Xoshiro()) = Simple(rand(rng, dist(ε), size(resid(ε), 2)), MvNormal(Diagonal(var(ε))))
 function simulate(ε::SpatialAutoregression; rng::AbstractRNG=Xoshiro())
     e_sim = similar(resid(ε))
     for et ∈ eachcol(e_sim)
         et .= poly(ε) \ rand(rng, dist(ε))
     end
 
-    return SpatialAutoregression(e_sim, copy(dist(ε)), copy(spatial(ε)), ε.ρ_max, weights(ε))
+    return SpatialAutoregression(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
 end
 function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
     e_sim = similar(resid(ε))
@@ -58,5 +58,5 @@ function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
         mul!(et, poly(ε), rand(rng, dist(ε)))
     end
 
-    return SpatialMovingAverage(e_sim, copy(dist(ε)), copy(spatial(ε)), weights(ε))
+    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), weights(ε))
 end

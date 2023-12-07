@@ -52,8 +52,8 @@ slopes(μ::Exogenous) = μ.β
 regressors(μ::Exogenous) = μ.X
 mean(μ::ZeroMean) = Zeros(μ.type, μ.n)
 mean(μ::Exogenous) = slopes(μ) * regressors(μ)
-Base.copy(μ::ZeroMean) = ZeroMean(μ.type, μ.n)
-Base.copy(μ::Exogenous) = Exogenous(copy(regressors(μ)), copy(slopes(μ)))
+copy(μ::ZeroMean) = ZeroMean(μ.type, μ.n)
+copy(μ::Exogenous) = Exogenous(copy(regressors(μ)), copy(slopes(μ)))
 
 # error models
 """
@@ -68,11 +68,10 @@ abstract type AbstractErrorModel end
 
 Simple error model with errors `ε` and multivariate normal distribution `dist`.
 """
-struct Simple{Error<:AbstractMatrix, Dist<:AbstractMvNormal} <: AbstractErrorModel
+struct Simple{Error<:AbstractMatrix, Dist<:ZeroMeanDiagNormal} <: AbstractErrorModel
     ε::Error
     dist::Dist
-    function Simple(ε::AbstractMatrix, dist::AbstractMvNormal)
-        size(ε, 1) == length(mean(dist)) || throw(DimensionMismatch("ε and mean of dist must have the same number of rows."))
+    function Simple(ε::AbstractMatrix, dist::ZeroMeanDiagNormal)
         size(ε, 1) == size(cov(dist), 1) || throw(DimensionMismatch("ε and covariance of dist must have the same number of rows."))
 
         return new{typeof(ε), typeof(dist)}(ε, dist)
@@ -88,7 +87,7 @@ and spatial weights `W`.
 """
 struct SpatialAutoregression{
     Error<:AbstractMatrix,
-    Dist<:AbstractMvNormal,
+    Dist<:ZeroMeanDiagNormal,
     SpatialDep<:AbstractVector,
     SpatialMax<:Real,
     SpatialWeights<:AbstractMatrix
@@ -100,12 +99,11 @@ struct SpatialAutoregression{
     W::SpatialWeights
     function SpatialAutoregression(
         ε::AbstractMatrix,
-        dist::AbstractMvNormal,
+        dist::ZeroMeanDiagNormal,
         ρ::AbstractVector,
         ρ_max::Real,
         W::AbstractMatrix
     )
-        size(ε, 1) == length(mean(dist)) || throw(DimensionMismatch("ε and mean of dist must have the same number of rows."))
         size(ε, 1) == size(cov(dist), 1) || throw(DimensionMismatch("ε and covariance of dist must have the same number of rows."))
         size(ε, 1) == size(W, 1) || throw(DimensionMismatch("ε and W must have the same number of rows."))
         (length(ρ) == size(W, 1) || length(ρ) == 1) || throw(DimensionMismatch("ρ and W must have the same number of rows or ρ must be a single element vector."))
@@ -124,7 +122,7 @@ distribution `dist`, spatial dependence `ρ`, and spatial weights `W`.
 """
 struct SpatialMovingAverage{
     Error<:AbstractMatrix,
-    Dist<:AbstractMvNormal,
+    Dist<:ZeroMeanDiagNormal,
     SpatialDep<:AbstractVector,
     SpatialWeights<:AbstractMatrix
 } <: AbstractErrorModel
@@ -134,11 +132,10 @@ struct SpatialMovingAverage{
     W::SpatialWeights
     function SpatialMovingAverage(
         ε::AbstractMatrix,
-        dist::AbstractMvNormal,
+        dist::ZeroMeanDiagNormal,
         ρ::AbstractVector,
         W::AbstractMatrix
     )
-        size(ε, 1) == length(mean(dist)) || throw(DimensionMismatch("ε and mean of dist must have the same number of rows."))
         size(ε, 1) == size(cov(dist), 1) || throw(DimensionMismatch("ε and covariance of dist must have the same number of rows."))
         (length(ρ) == size(W, 1) || length(ρ) == 1) || throw(DimensionMismatch("ρ and W must have the same number of rows or ρ must be a single element vector."))
         size(W, 1) == size(W, 2) || throw(DimensionMismatch("W must be square."))
@@ -151,7 +148,7 @@ end
 resid(ε::AbstractErrorModel) = ε.ε
 dist(ε::AbstractErrorModel) = ε.dist
 mean(ε::AbstractErrorModel) = mean(dist(ε))
-cov(ε::AbstractErrorModel) = cov(dist(ε))
+cov(ε::AbstractErrorModel) = Distributions._cov(dist(ε))
 var(ε::AbstractErrorModel) = var(dist(ε))
 spatial(ε::SpatialAutoregression) = ε.ρ
 spatial(ε::SpatialMovingAverage) = ε.ρ
@@ -171,33 +168,43 @@ function poly(ε::SpatialMovingAverage)
         return I + Diagonal(spatial(ε)) * weights(ε)
     end
 end
-Base.copy(dist::AbstractMvNormal) = MvNormal(copy(mean(dist)), cov(dist))
+copy(ε::Simple) = Simple(copy(resid(ε)), MvNormal(Diagonal(var(ε))))
+copy(ε::SpatialAutoregression) = SpatialAutoregression(
+    copy(resid(ε)), 
+    MvNormal(Diagonal(var(ε))), 
+    copy(spatial(ε)), 
+    ε.ρ_max, 
+    weights(ε)
+)
+copy(ε::SpatialMovingAverage) = SpatialMovingAverage(
+    copy(resid(ε)), 
+    MvNormal(Diagonal(var(ε))), 
+    copy(spatial(ε)), 
+    weights(ε)
+)
 
 # factor process
-struct FactorProcess{
-    Dynamics<:AbstractMatrix,
-    Factors<:AbstractMatrix,
-    Dist<:AbstractMvNormal
-}
+"""
+    FactorProcess
+
+Factor process with dynamics `ϕ` and factors `f`.
+"""
+struct FactorProcess{Dynamics<:Diagonal, Factors<:AbstractMatrix}
     ϕ::Dynamics
     f::Factors
-    dist::Dist
-    function FactorProcess(ϕ::AbstractMatrix, f::AbstractMatrix, dist::AbstractMvNormal)
+    function FactorProcess(ϕ::Diagonal, f::AbstractMatrix)
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(ϕ, 1) == size(f, 1) || throw(DimensionMismatch("ϕ and f must have the same number of rows."))
-        size(f, 1) == length(mean(dist)) || throw(DimensionMismatch("f and mean of dist must have the same size."))
-        size(f, 1) == size(cov(dist), 1) || throw(DimensionMismatch("f and covariance of dist must have the same number of rows."))
 
-        return new{typeof(ϕ), typeof(f), typeof(dist)}(ϕ, f, dist)
+        return new{typeof(ϕ), typeof(f)}(ϕ, f)
     end
 end
 
 # methods
 dynamics(F::FactorProcess) = F.ϕ
 factors(F::FactorProcess) = F.f
-dist(F::FactorProcess) = F.dist
-cov(F::FactorProcess) = cov(dist(F))
-Base.size(F::FactorProcess) = size(factors(F), 1)
+size(F::FactorProcess) = size(factors(F), 1)
+copy(F::FactorProcess) = FactorProcess(copy(dynamics(F)), copy(factors(F)))
 
 # dynamic factor model
 """
@@ -205,6 +212,12 @@ Base.size(F::FactorProcess) = size(factors(F), 1)
 
 Dynamic factor model with mean specification `μ`, error model `ε`,
 factor loadings `Λ`, and factor process `f`.
+
+For identification purposes the factors are assumed to be independent, i.e. the
+factor process has diagonal autoregressive dynamics and the disturbances follow a
+standard multivariate normal distribution (``ηₜ ∼ N(0, I)``). Moreover, the
+dynamics of the independent factors are assumed to be idiosyncratic, i.e. ``ϕᵢ ≠
+ϕⱼ`` for ``i ≠ j``.
 """
 struct DynamicFactorModel{
     Data<:AbstractMatrix,
@@ -243,4 +256,11 @@ loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model.F))
-Base.size(model::DynamicFactorModel) = (size(data(model))..., size(factors(model))...)
+size(model::DynamicFactorModel) = (size(data(model))..., size(factors(model))...)
+copy(model::DynamicFactorModel) = DynamicFactorModel(
+    copy(data(model)),
+    copy(mean(model)),
+    copy(errors(model)),
+    copy(loadings(model)),
+    copy(process(model))
+)

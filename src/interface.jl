@@ -31,8 +31,7 @@ function DynamicFactorModel(
     Λ = zeros(n, R)
     F = FactorProcess(
         Diagonal{Float64}(undef, R),
-        Matrix{Float64}(undef, R, T),
-        MvNormal(zeros(R), I(R))
+        Matrix{Float64}(undef, R, T)
     )
 
     return DynamicFactorModel(y, μ, ε, Λ, F)
@@ -58,8 +57,7 @@ function DynamicFactorModel(
     Λ = zeros(n, R)
     F = FactorProcess(
         Diagonal{Float64}(undef, R),
-        Matrix{Float64}(undef, R, T),
-        MvNormal(zeros(R), I(R))
+        Matrix{Float64}(undef, R, T)
     )
 
     return DynamicFactorModel(Matrix{Float64}(undef, n, T), μ, ε, Λ, F)
@@ -78,7 +76,7 @@ Exogenous(X::AbstractMatrix, n::Integer) = Exogenous(X, similar(X, (n, size(X, 1
 
 Construct a simple error model with `n` time series and `T` observations.
 """
-Simple(n::Integer, T::Integer) = Simple(Array{Float64}(undef, n, T), MvNormal(Zeros(n), I(n)))
+Simple(n::Integer, T::Integer) = Simple(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)))
 
 """
     SpatialAutoregression(n, T, W, spatial=:homo) -> ε
@@ -98,7 +96,7 @@ function SpatialAutoregression(n::Integer, T::Integer, W::AbstractMatrix, spatia
         throw(ArgumentError("spatial dependence type $spatial not supported."))
     end
 
-    return SpatialAutoregression(Array{Float64}(undef, n, T), MvNormal(Zeros(n), I(n)), ρ, ρ_max, W)
+    return SpatialAutoregression(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, ρ_max, W)
 end
 
 """
@@ -118,7 +116,7 @@ function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix, spatial
         throw(ArgumentError("spatial dependence type $spatial not supported."))
     end
 
-    return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal(Zeros(n), I(n)), ρ, W)
+    return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, W)
 end
 
 """
