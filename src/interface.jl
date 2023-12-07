@@ -140,3 +140,84 @@ function simulate(model::DynamicFactorModel; burn::Integer=100, rng::AbstractRNG
 
     return DynamicFactorModel(y_sim, size(F_sim), copy(mean(model)), ε_sim)
 end
+
+"""
+    fit!(
+        model;
+        regularizer=(factors=nothing, mean=nothing, error=nothing),   
+        init_method=(factors=:data, mean=:data, error=:data), 
+        ϵ=1e-4, 
+        max_iter=1000, 
+        verbose=false
+    ) -> model
+
+Fit the dynamic factor model described by `model` to the data with tolerance `ϵ`
+and maximum number of iterations `max_iter`. If `verbose` is true a summary of
+the model fitting is printed. `init_method` indicates which method is used for
+initialization of the parameters. 'regularizer' indicates the regularization
+method used for estimation.
+
+Estimation is done using the Expectation-Maximization algorithm for obtaining
+the maximum likelihood estimates of the unregularized model. If a regularizer is
+specified, the model is estimated using the Expectation-Maximization algorithm
+in combination with a proximal minimization algorithm.
+"""
+function fit!(
+    model::DynamicFactorModel;
+    regularizer::NamedTuple=(factors=nothing, mean=nothing, error=nothing),
+    init_method::NamedTuple=(factors=:data, mean=:data, error=:data), 
+    ϵ::AbstractFloat=1e-4, 
+    max_iter::Integer=1000, 
+    verbose::Bool=false
+)
+    keys(regularizer) ⊇ (:factors, :mean, :error) || error("regularizer must be a NamedTuple with keys :factors, :mean, and :error.")
+    keys(init_method) ⊇ (:factors, :mean, :error) || error("init_method must be a NamedTuple with keys :factors, :mean, and :error.")
+
+    # model summary
+    if verbose
+        println("Dynamic factor model")
+        println("===========================")
+        println("Number of series and observations: $(size(model)[1:end-1])")
+        println("Number of factors: $(size(model)[end])")
+        println("Mean specification: $(Base.typename(typeof(mean(model))).wrapper)")
+        println("Error specification: $(Base.typename(typeof(errors(model))).wrapper)")
+        println("===========================")
+        println()
+    end
+    
+    # initialization of model parameters
+    init!(model, init_method)
+
+    # instantiate model
+    model_prev = copy(model)
+
+    # optimization
+    iter = 0
+    δ = Inf
+    while δ > ϵ && iter < max_iter
+        # update model
+        update!(model, regularizer)
+
+        # compute maximum abs change in parameters
+        δ = absdiff(model, model_prev)
+
+        # store model
+        copyto!(model_prev, model)
+
+        # update iteration counter
+        iter += 1
+    end
+
+    # optimization summary
+    if verbose
+        println("Optimization summary")
+        println("====================")
+        println("Convergence: ", δ < ϵ ? "success" : "failed")
+        println("Maximum absolute change: $δ")
+        println("Iterations: $iter")
+        println("Objective function value: $(objective(model))")
+        println("====================")
+    end
+
+    return model
+end
