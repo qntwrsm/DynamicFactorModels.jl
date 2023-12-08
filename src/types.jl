@@ -213,9 +213,20 @@ copy(F::FactorProcess) = FactorProcess(copy(dynamics(F)), copy(factors(F)))
 Dynamic factor model with mean specification `μ`, error model `ε`,
 factor loadings `Λ`, and factor process `f`.
 
+The dynamic factor model is defined as
+
+```math
+yₜ = μₜ + Λfₜ + εₜ, εₜ ∼ N(0, Σ),
+fₜ = ϕfₜ₋₁ + ηₜ, ηₜ ∼ N(0, I),
+```
+
+where ``yₜ`` is a ``n × 1`` vector of observations, ``μₜ`` is a ``n × 1`` vector
+of time-varying means, ``Λ`` is a ``n × R`` matrix of factor loadings, ``fₜ`` is
+a ``R × 1`` vector of factors, and ``εₜ`` is a ``n × 1`` vector of errors. 
+
 For identification purposes the factors are assumed to be independent, i.e. the
-factor process has diagonal autoregressive dynamics and the disturbances follow a
-standard multivariate normal distribution (``ηₜ ∼ N(0, I)``). Moreover, the
+factor process has diagonal autoregressive dynamics and the disturbances follow 
+a standard multivariate normal distribution (``ηₜ ∼ N(0, I)``). Moreover, the
 dynamics of the independent factors are assumed to be idiosyncratic, i.e. ``ϕᵢ ≠
 ϕⱼ`` for ``i ≠ j``.
 """
