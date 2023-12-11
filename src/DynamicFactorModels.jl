@@ -16,7 +16,8 @@ using
     LinearAlgebra,
     Random,
     FillArrays,
-    Distributions
+    Distributions,
+    MultivariateStats
 
 import Base: show, size, copy
 import Statistics: mean, var, cov
@@ -36,11 +37,16 @@ export
     spatial, weights,                   # spatial
 
     # simulate
-    simulate
+    simulate,
+
+    # fit
+    fit!
 
 include("types.jl")
 include("show.jl")
 include("interface.jl")
 include("utilities.jl")
+include("fit/utilities.jl")
+include("fit/solver.jl")
 
 end
