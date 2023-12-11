@@ -208,7 +208,7 @@ copy(F::FactorProcess) = FactorProcess(copy(dynamics(F)), copy(factors(F)))
 
 # dynamic factor model
 """
-    DynamicFactorModel
+    DynamicFactorModel <: StatisticalModel
 
 Dynamic factor model with mean specification `μ`, error model `ε`,
 factor loadings `Λ`, and factor process `f`.
@@ -236,7 +236,7 @@ struct DynamicFactorModel{
     Error<:AbstractErrorModel,
     Loadings<:AbstractMatrix,
     Factors<:FactorProcess,
-}
+} <: StatisticalModel
     y::Data
     μ::Mean
     ε::Error
