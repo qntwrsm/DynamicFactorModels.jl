@@ -105,25 +105,3 @@ end
 Calculate the maximum absolute difference between `x` and `y`.
 """
 absdiff(x::AbstractArray, y::AbstractArray) = mapreduce((xi, yi) -> abs(xi - yi), max, x, y)
-function absdiff(model::DynamicFactorModel, model_prev::DynamicFactorModel)
-    δ_loadings = absdiff(loadings(model), loadings(model_prev))
-    δ_mean = absdiff(mean(model), mean(model_prev))
-    δ_errors = absdiff(errors(model), errors(model_prev))
-
-    return max(δ_loadings, δ_mean, δ_errors)
-end
-absdiff(μ::ZeroMean, μ_prev::ZeroMean) = zero(μ.T)
-absdiff(μ::Exogenous, μ_prev::Exogenous) = absdiff(slopes(μ), slopes(μ_prev))
-absdiff(ε::Simple, ε_prev::Simple) = absdiff(cov(ε), cov(ε_prev))
-function absdiff(ε::SpatialAutoregression, ε_prev::SpatialAutoregression)
-    δ_cov = absdiff(cov(ε), cov(ε_prev))
-    δ_spatial = absdiff(spatial(ε), spatial(ε_prev))
-
-    return max(δ_cov, δ_spatial)
-end
-function absdiff(ε::SpatialMovingAverage, ε_prev::SpatialMovingAverage)
-    δ_cov = absdiff(cov(ε), cov(ε_prev))
-    δ_spatial = absdiff(spatial(ε), spatial(ε_prev))
-
-    return max(δ_cov, δ_spatial)
-end

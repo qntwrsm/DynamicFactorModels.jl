@@ -186,8 +186,9 @@ function fit!(
     # initialization of model parameters
     init!(model, init_method)
 
-    # instantiate model
-    model_prev = copy(model)
+    # instantiate parameter vectors
+    θ_prev = params(model)
+    θ = similar(θ_prev)
 
     # optimization
     iter = 0
@@ -197,10 +198,9 @@ function fit!(
         update!(model, regularizer)
 
         # compute maximum abs change in parameters
-        δ = absdiff(model, model_prev)
-
-        # store model
-        copyto!(model_prev, model)
+        params!(θ, model)
+        δ = absdiff(θ, θ_prev)
+        copyto!(θ_prev, θ)
 
         # update iteration counter
         iter += 1

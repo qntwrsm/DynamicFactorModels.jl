@@ -20,9 +20,9 @@ using
     MultivariateStats
 using StatsAPI: StatisticalModel
 
-import Base: show, size, copy
+import Base: show, size
 import Statistics: mean, var, cov
-import StatsAPI: fit!
+import StatsAPI: params, params!, fit!
 
 export
     # constructors

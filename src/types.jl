@@ -52,8 +52,6 @@ slopes(μ::Exogenous) = μ.β
 regressors(μ::Exogenous) = μ.X
 mean(μ::ZeroMean) = Zeros(μ.type, μ.n)
 mean(μ::Exogenous) = slopes(μ) * regressors(μ)
-copy(μ::ZeroMean) = ZeroMean(μ.type, μ.n)
-copy(μ::Exogenous) = Exogenous(copy(regressors(μ)), copy(slopes(μ)))
 
 # error models
 """
@@ -168,20 +166,6 @@ function poly(ε::SpatialMovingAverage)
         return I + Diagonal(spatial(ε)) * weights(ε)
     end
 end
-copy(ε::Simple) = Simple(copy(resid(ε)), MvNormal(Diagonal(var(ε))))
-copy(ε::SpatialAutoregression) = SpatialAutoregression(
-    copy(resid(ε)), 
-    MvNormal(Diagonal(var(ε))), 
-    copy(spatial(ε)), 
-    ε.ρ_max, 
-    weights(ε)
-)
-copy(ε::SpatialMovingAverage) = SpatialMovingAverage(
-    copy(resid(ε)), 
-    MvNormal(Diagonal(var(ε))), 
-    copy(spatial(ε)), 
-    weights(ε)
-)
 
 # factor process
 """
@@ -204,7 +188,6 @@ end
 dynamics(F::FactorProcess) = F.ϕ
 factors(F::FactorProcess) = F.f
 size(F::FactorProcess) = size(factors(F), 1)
-copy(F::FactorProcess) = FactorProcess(copy(dynamics(F)), copy(factors(F)))
 
 # dynamic factor model
 """
@@ -266,12 +249,50 @@ resid(model::DynamicFactorModel) = resid(errors(model))
 loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
-dynamics(model::DynamicFactorModel) = dynamics(process(model.F))
+dynamics(model::DynamicFactorModel) = dynamics(process(model))
 size(model::DynamicFactorModel) = (size(data(model))..., size(factors(model))...)
-copy(model::DynamicFactorModel) = DynamicFactorModel(
-    copy(data(model)),
-    copy(mean(model)),
-    copy(errors(model)),
-    copy(loadings(model)),
-    copy(process(model))
-)
+function params!(θ::AbstractVector, model::DynamicFactorModel)
+    idx = 1
+
+    # loadings
+    offset = length(loadings(model))
+    θ[idx:idx+offset-1] .= vec(loadings(model))
+    idx += offset
+
+    # factor dynamics
+    offset = length(dynamics(model).diag)
+    θ[idx:idx+offset-1] .= dynamics(model).diag
+    idx += offset
+
+    # covariance matrix
+    offset = length(cov(errors(model)).diag)
+    θ[idx:idx+offset-1] .= cov(errors(model)).diag
+    idx += offset
+
+    # mean
+    if mean(model) isa Exogenous
+        offset = length(slopes(mean(model)))
+        θ[idx:idx+offset-1] .= vec(slopes(mean(model)))
+        idx += offset
+    end
+    
+    # spatial dependence
+    if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
+        offset = length(spatial(errors(model)))
+        θ[idx:idx+offset] .= spatial(errors(model))
+    end
+
+    return nothing
+end
+function params(model::DynamicFactorModel)
+    # number of parameters
+    n_params = length(loadings(model)) + length(cov(errors(model)).diag) + length(dynamics(model).diag)
+    errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
+    mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
+
+    # parameters
+    θ = zeros(n_params)
+    params!(θ, model)
+
+    return θ
+end
