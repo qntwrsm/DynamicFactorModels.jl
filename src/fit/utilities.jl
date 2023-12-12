@@ -74,7 +74,7 @@ function init!(ε::SpatialAutoregression, method::Symbol)
         end
 
         # estimate covariance matrix
-        resid(ε) .= poly(ε) \ resid(ε)
+        resid(ε) .= poly(ε) * resid(ε)
         cov(ε).diag .= var(resid(ε), dims=2)
     end
 
