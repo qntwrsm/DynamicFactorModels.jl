@@ -14,7 +14,7 @@ StatsAPI = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
 
 [compat]
 Distributions = "0.25"
-FillArrays = "1"
+FillArrays = "0"
 MultivariateStats = "0.10"
 Statistics = "1"
 StatsAPI = "1"
