@@ -52,6 +52,8 @@ slopes(μ::Exogenous) = μ.β
 regressors(μ::Exogenous) = μ.X
 mean(μ::ZeroMean) = Zeros(μ.type, μ.n)
 mean(μ::Exogenous) = slopes(μ) * regressors(μ)
+copy(μ::ZeroMean) = ZeroMean(μ.type, μ.n)
+copy(μ::Exogenous) = Exogenous(copy(regressors(μ)), copy(slopes(μ)))
 
 # error models
 """

@@ -136,7 +136,7 @@ function simulate(model::DynamicFactorModel; burn::Integer=100, rng::AbstractRNG
     # simulate data
     y_sim = loadings(model) * factors(F_sim) + resid(ε_sim)
 
-    return DynamicFactorModel(y_sim, size(F_sim), copy(mean(model)), ε_sim)
+    return DynamicFactorModel(y_sim, copy(mean(model)), ε_sim, copy(loadings(model)), F_sim)
 end
 
 """

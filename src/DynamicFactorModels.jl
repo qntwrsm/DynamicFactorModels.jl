@@ -20,7 +20,7 @@ using
     MultivariateStats
 using StatsAPI: StatisticalModel
 
-import Base: show, size
+import Base: show, size, copy
 import Statistics: mean, var, cov
 import StatsAPI: params, params!, fit!
 
