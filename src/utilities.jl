@@ -71,14 +71,11 @@ function state_space(model::DynamicFactorModel)
     Ty = eltype(data(model))
 
     # projection components
-    if errors(model) isa Simple
-        Zt_Hinv = loadings(model)' / cov(errors(model)) 
-    elseif errors(model) isa SpatialAutoregression
-        Hinv = poly(errors(model))' * cov(errors(model)) \ poly(errors(model)) 
+    if errors(model) isa SpatialAutoregression
+        Hinv = poly(errors(model))' * cov(errors(model)) * poly(errors(model)) 
         Zt_Hinv = loadings(model)' * Hinv
-    elseif errors(model) isa SpatialMovingAverage
-        H = poly(errors(model)) * cov(errors(model)) * poly(errors(model))'
-        Zt_Hinv = loadings(model)' / H
+    else
+        Zt_Hinv = loadings(model)' / cov(model)
     end
     Zt_Hinv_Z = Zt_Hinv * loadings(model)
     

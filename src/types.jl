@@ -148,7 +148,21 @@ end
 resid(ε::AbstractErrorModel) = ε.ε
 dist(ε::AbstractErrorModel) = ε.dist
 mean(ε::AbstractErrorModel) = mean(dist(ε))
-cov(ε::AbstractErrorModel) = Distributions._cov(dist(ε))
+cov(ε::AbstractErrorModel; full::Bool=false) = Distributions._cov(dist(ε))
+function cov(ε::SpatialAutoregression; full::Bool=false)
+    if full
+        return poly(ε) \ Distributions._cov(dist(ε)) / poly(ε)'
+    else
+        return Distributions._cov(dist(ε))
+    end
+end
+function cov(ε::SpatialMovingAverage; full::Bool=false)
+    if full
+        return poly(ε) * Distributions._cov(dist(ε)) * poly(ε)'
+    else
+        return Distributions._cov(dist(ε))
+    end
+end
 var(ε::AbstractErrorModel) = var(dist(ε))
 spatial(ε::SpatialAutoregression) = ε.ρ
 spatial(ε::SpatialMovingAverage) = ε.ρ
@@ -248,6 +262,7 @@ data(model::DynamicFactorModel) = model.y
 mean(model::DynamicFactorModel) = model.μ
 errors(model::DynamicFactorModel) = model.ε
 resid(model::DynamicFactorModel) = resid(errors(model))
+cov(model::DynamicFactorModel) = cov(errors(model), full=true)
 loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
