@@ -35,8 +35,22 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     return nothing
 end
 
-function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatrix, V::AbstractVector, regularizer)
-    #TODO NOT IMPLEMENTED YET
+"""
+    update_loadings!(Λ, y, f, V, regularizer)
+
+Update factor loadings `Λ` using the data `y`, smoothed factors `f`, and
+smoothed covariance matrix `V` with regularization given by `regularizer`.
+"""
+function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+    y_f = zero(Λ)
+    V_f_f = zero(Λ)
+    for (yt, ft, Vt) ∈ zip(y, f, V)
+        mul!(y_f, yt, ft', true, true)
+        V_f_f .+= Vt
+        mul!(V_f_f, ft, ft', true, true)
+    end
+    # update
+    Λ .= y_f \ V_f_f
 
     return nothing
 end
