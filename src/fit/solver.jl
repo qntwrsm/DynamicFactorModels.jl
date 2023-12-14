@@ -25,13 +25,17 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     
     # (M)aximization step
     # update factor loadings and dynamics
-    update_loadings!(loadings(model), data(model), factors(model), V, regularizer.factors)
+    resid(model) .= data(model) .- mean(mean(model))
+    update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors)
     update!(process(model), V, Γ)
 
     # update mean specification
-    update!(mean(model), V, regularizer.mean)
+    resid(model) .= data(model)
+    mul!(resid(model), loadings(model), factors(model), -true, true)
+    update!(mean(model), resid(model), regularizer.mean)
 
     # update error specification
+    resid(model) .-= mean(mean(model))
     update!(errors(model), V, regularizer.error)
 
     return nothing
@@ -42,6 +46,8 @@ end
 
 Update factor loadings `Λ` using the data `y`, smoothed factors `f`, and
 smoothed covariance matrix `V` with regularization given by `regularizer`.
+
+Update is perfomed using OLS when regularizer is `nothing`.
 """
 function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
     Eyf = y * f'
@@ -49,12 +55,17 @@ function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatr
     for Vt ∈ V
         Eff .+= Vt
     end
-    # update
     Λ .= Eyf / Eff
 
     return nothing
 end
 
+"""
+    update!(F, V, Γ)
+
+Update dynamics of factor process `F` using smoothed covariance matrix `V` and
+smoothed auto-covariance matrix `Γ` using OLS.
+"""
 function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
     @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
     @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
@@ -62,14 +73,25 @@ function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
         Ef1f1 .+= V[t]
         Eff1 .+= Γ[t]
     end
-    # update
     dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
 
     return nothing
 end
 
-function update!(μ::AbstractMeanSpecification, V::AbstractVector, regularizer)
-    #TODO NOT IMPLEMENTED YET
+"""
+    update!(μ, y, regularizer)
+
+Update mean specification `μ` using the data minus the common component `y` with
+regularization given by `regularizer`.
+
+Update is perfomed using OLS when regularizer is `nothing` for exogeneous mean
+specification.
+"""
+update!(μ::ZeroMean, y::AbstractMatrix, regularizer::Nothing) = nothing
+function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
+    yX = y * regressors(μ)'
+    XX = regressors(μ) * regressors(μ)'
+    slopes(μ) .= yX / XX
 
     return nothing
 end
