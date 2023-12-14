@@ -134,7 +134,7 @@ function simulate(model::DynamicFactorModel; burn::Integer=100, rng::AbstractRNG
     ε_sim = simulate(errors(model), rng=rng)
 
     # simulate data
-    y_sim = loadings(model) * factors(F_sim) + resid(ε_sim)
+    y_sim = mean(mean(model)) + loadings(model) * factors(F_sim) + resid(ε_sim)
 
     return DynamicFactorModel(y_sim, copy(mean(model)), ε_sim, copy(loadings(model)), F_sim)
 end
