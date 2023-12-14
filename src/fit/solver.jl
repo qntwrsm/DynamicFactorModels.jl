@@ -19,7 +19,9 @@ expectation-maximization (EM) solve w/ regularization term given by
 function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     # (E)xpectation step
     (α̂, V, Γ) = smoother(model)
-    factors(model) .= α̂
+    for (t, α̂t) ∈ pairs(α̂)
+        factors(model)[:,t] = α̂t
+    end
     
     # (M)aximization step
     # update factor loadings and dynamics
@@ -41,13 +43,11 @@ end
 Update factor loadings `Λ` using the data `y`, smoothed factors `f`, and
 smoothed covariance matrix `V` with regularization given by `regularizer`.
 """
-function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractVector, V::AbstractVector, regularizer::Nothing)
-    Eyf = zero(Λ)
-    Eff = zero(V[1])
-    for (yt, ft, Vt) ∈ zip(eachcol(y), f, V)
-        mul!(Eyf, yt, ft', true, true)
+function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+    Eyf = y * f'
+    Eff = f * f'
+    for Vt ∈ V
         Eff .+= Vt
-        mul!(Eff, ft, ft', true, true)
     end
     # update
     Λ .= Eyf / Eff
@@ -56,13 +56,11 @@ function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractVect
 end
 
 function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
-    Ef1f1 = zero(V[1])
-    Eff1 = zero(V[1]) 
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
     for t ∈ eachindex(Γ)
         Ef1f1 .+= V[t]
-        mul!(Ef1f1, factors(F)[t], factors(F)[t]', true, true)
         Eff1 .+= Γ[t]
-        mul!(Eff1, factors(F)[t+1], factors(F)[t]', true, true)
     end
     # update
     dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
