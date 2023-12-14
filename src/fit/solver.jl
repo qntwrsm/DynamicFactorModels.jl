@@ -60,9 +60,9 @@ function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
     Eff1 = zero(V[1]) 
     for t ∈ eachindex(Γ)
         Ef1f1 .+= V[t]
-        mul!(Ef1f1, f[t], f[t]', true, true)
+        mul!(Ef1f1, factors(F)[t], factors(F)[t]', true, true)
         Eff1 .+= Γ[t]
-        mul!(Eff1, f[t+1], f[t]', true, true)
+        mul!(Eff1, factors(F)[t+1], factors(F)[t]', true, true)
     end
     # update
     dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
