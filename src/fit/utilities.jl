@@ -9,52 +9,6 @@ utilities.jl
 @date: 2023/12/08
 =#
 
-function params(model::DynamicFactorModel)
-    # number of parameters
-    n_params = length(loadings(model)) + length(cov(errors(model)).diag) + length(dynamics(model).diag)
-    errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
-    mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
-
-    # parameters
-    θ = zeros(n_params)
-    params!(θ, model)
-
-    return θ
-end
-function params!(θ::AbstractVector, model::DynamicFactorModel)
-    idx = 1
-
-    # loadings
-    offset = length(loadings(model))
-    θ[idx:idx+offset-1] .= vec(loadings(model))
-    idx += offset
-
-    # factor dynamics
-    offset = length(dynamics(model).diag)
-    θ[idx:idx+offset-1] .= dynamics(model).diag
-    idx += offset
-
-    # covariance matrix
-    offset = length(cov(errors(model)).diag)
-    θ[idx:idx+offset-1] .= cov(errors(model)).diag
-    idx += offset
-
-    # mean
-    if mean(model) isa Exogenous
-        offset = length(slopes(mean(model)))
-        θ[idx:idx+offset-1] .= vec(slopes(mean(model)))
-        idx += offset
-    end
-    
-    # spatial dependence
-    if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
-        offset = length(spatial(errors(model)))
-        θ[idx:idx+offset] .= spatial(errors(model))
-    end
-
-    return nothing
-end
-
 """
     init!(model, method)
 
@@ -145,9 +99,50 @@ function init!(ε::SpatialMovingAverage, method::Symbol)
     return nothing
 end
 
-"""
-    absdiff(x, y) -> δ
+function params(model::DynamicFactorModel)
+    # number of parameters
+    n_params = length(loadings(model)) + length(cov(errors(model)).diag) + length(dynamics(model).diag)
+    errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
+    mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
 
-Calculate the maximum absolute difference between `x` and `y`.
-"""
+    # parameters
+    θ = zeros(n_params)
+    params!(θ, model)
+
+    return θ
+end
+function params!(θ::AbstractVector, model::DynamicFactorModel)
+    idx = 1
+
+    # loadings
+    offset = length(loadings(model))
+    θ[idx:idx+offset-1] .= vec(loadings(model))
+    idx += offset
+
+    # factor dynamics
+    offset = length(dynamics(model).diag)
+    θ[idx:idx+offset-1] .= dynamics(model).diag
+    idx += offset
+
+    # covariance matrix
+    offset = length(cov(errors(model)).diag)
+    θ[idx:idx+offset-1] .= cov(errors(model)).diag
+    idx += offset
+
+    # mean
+    if mean(model) isa Exogenous
+        offset = length(slopes(mean(model)))
+        θ[idx:idx+offset-1] .= vec(slopes(mean(model)))
+        idx += offset
+    end
+    
+    # spatial dependence
+    if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
+        offset = length(spatial(errors(model)))
+        θ[idx:idx+offset] .= spatial(errors(model))
+    end
+
+    return nothing
+end
+
 absdiff(x::AbstractArray, y::AbstractArray) = mapreduce((xi, yi) -> abs(xi - yi), max, x, y)

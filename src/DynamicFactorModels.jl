@@ -17,8 +17,10 @@ using
     Random,
     FillArrays,
     Distributions,
-    MultivariateStats
+    MultivariateStats,
+    Optim
 using StatsAPI: StatisticalModel
+using LogExpFunctions: logistic, logit
 
 import Base: show, size, copy
 import Statistics: mean, var, cov

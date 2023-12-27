@@ -107,7 +107,7 @@ struct SpatialAutoregression{
         size(ε, 1) == size(cov(dist), 1) || throw(DimensionMismatch("ε and covariance of dist must have the same number of rows."))
         size(ε, 1) == size(W, 1) || throw(DimensionMismatch("ε and W must have the same number of rows."))
         (length(ρ) == size(W, 1) || length(ρ) == 1) || throw(DimensionMismatch("ρ and W must have the same number of rows or ρ must be a single element vector."))
-        all(ρi -> abs(ρi) < ρ_max, ρ)  || throw(DimensionMismatch("|ρ| < ρ_max."))
+        all(ρi -> abs(ρi) < ρ_max, ρ)  || throw(DomainError("|ρ| < ρ_max."))
         size(W, 1) == size(W, 2) || throw(DimensionMismatch("W must be square."))
 
         return new{typeof(ε), typeof(dist), typeof(ρ), typeof(ρ_max), typeof(W)}(ε, dist, ρ, ρ_max, W)
@@ -118,29 +118,35 @@ end
     SpatialMovingAverage <: AbstractErrorModel
 
 Spatial moving average error model with errors `ε`, multivariate normal
-distribution `dist`, spatial dependence `ρ`, and spatial weights `W`.
+distribution `dist`, spatial dependence `ρ`, maximum spatial dependence `ρ_max`, 
+and spatial weights `W`.
 """
 struct SpatialMovingAverage{
     Error<:AbstractMatrix,
     Dist<:ZeroMeanDiagNormal,
     SpatialDep<:AbstractVector,
+    SpatialMax<:Real,
     SpatialWeights<:AbstractMatrix
 } <: AbstractErrorModel
     ε::Error
     dist::Dist
     ρ::SpatialDep
+    ρ_max::SpatialMax
     W::SpatialWeights
     function SpatialMovingAverage(
         ε::AbstractMatrix,
         dist::ZeroMeanDiagNormal,
         ρ::AbstractVector,
+        ρ_max::Real,
         W::AbstractMatrix
     )
         size(ε, 1) == size(cov(dist), 1) || throw(DimensionMismatch("ε and covariance of dist must have the same number of rows."))
+        size(ε, 1) == size(W, 1) || throw(DimensionMismatch("ε and W must have the same number of rows."))
         (length(ρ) == size(W, 1) || length(ρ) == 1) || throw(DimensionMismatch("ρ and W must have the same number of rows or ρ must be a single element vector."))
+        all(ρi -> abs(ρi) < ρ_max, ρ)  || throw(DomainError("|ρ| < ρ_max."))
         size(W, 1) == size(W, 2) || throw(DimensionMismatch("W must be square."))
 
-        return new{typeof(ε), typeof(dist), typeof(ρ), typeof(W)}(ε, dist, ρ, W)
+        return new{typeof(ε), typeof(dist), typeof(ρ), typeof(W)}(ε, dist, ρ, ρ_max, W)
     end
 end
 

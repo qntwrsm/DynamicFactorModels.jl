@@ -25,7 +25,8 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     
     # (M)aximization step
     # update factor loadings and dynamics
-    resid(model) .= data(model) .- mean(mean(model))
+    resid(model) .= data(model)
+    mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
     update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors)
     update!(process(model), V, Γ)
 
@@ -35,8 +36,8 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     update!(mean(model), resid(model), regularizer.mean)
 
     # update error specification
-    resid(model) .-= mean(mean(model))
-    update!(errors(model), V, regularizer.error)
+    mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
+    update!(errors(model), loadings(model), V, regularizer.error)
 
     return nothing
 end
@@ -96,8 +97,74 @@ function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
     return nothing
 end
 
-function update!(ε::AbstractErrorModel, V::AbstractVector, regularizer)
-    #TODO NOT IMPLEMENTED YET
+"""
+    update!(ε, Λ, V, regularizer)
+
+Update error model `ε` using factor loadings `Λ`, smoothed covariance matrix
+`V`, and regularization given by `regularizer`.
+
+Update is perfomed using MLE when regularizer is `nothing`. This implies for the
+covariance matrix the expectation of the (scaled) sum of squared residuals.
+"""
+function update!(ε::Simple, Λ::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+    Vsum = zero(V[1])
+    for Vt ∈ V
+        Vsum .+= Vt
+    end
+    Eee = resid(ε) * resid(ε)' + Λ * Vsum * Λ'
+    cov(ε).diag .= diag(Eee) ./ size(resid(ε), 2)
+
+    return nothing
+end
+function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+    Vsum = zero(V[1])
+    for Vt ∈ V
+        Vsum .+= Vt
+    end
+    Eee = resid(ε) * resid(ε)' + Λ * Vsum * Λ'
+
+    # update spatial filter
+    scale = 2.0 * ε.ρ_max
+    offset = ε.ρ_max
+    function objective(ρ::AbstractVector)
+        spatial(ε) .= scale .* logistic.(ρ) .- offset
+        G = poly(ε)
+        Ω = G' * (cov(ε) \ G)
+
+        return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
+    end
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS())
+    spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
+
+    # update covariance matrix
+    G = poly(ε)
+    cov(ε).diag .= diag(G * Eee * G') ./ size(resid(ε), 2)
+
+    return nothing
+end
+function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+    Vsum = zero(V[1])
+    for Vt ∈ V
+        Vsum .+= Vt
+    end
+    Eee = resid(ε) * resid(ε)' + Λ * Vsum * Λ'
+
+    # update spatial filter
+    scale = 2.0 * ε.ρ_max
+    offset = ε.ρ_max
+    function objective(ρ::AbstractVector)
+        spatial(ε) .= scale .* logistic.(ρ) .- offset
+        G = poly(ε)
+        Σ = G * cov(ε) * G'
+
+        return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
+    end
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS())
+    spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
+
+    # update covariance matrix
+    G = poly(ε)
+    cov(ε).diag .= diag(G \ (G \ Eee)') ./ size(resid(ε), 2)
 
     return nothing
 end

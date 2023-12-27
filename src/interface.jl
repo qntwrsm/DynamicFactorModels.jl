@@ -108,6 +108,7 @@ observations, spatial weight matrix `W`, and spatial dependence of type
 """
 function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix, spatial::Symbol=:homo)
     # spatial dependence
+    ρ_max = max(inv(opnorm(W, 1)), inv(opnorm(W, Inf)))
     if spatial == :homo
         ρ = zeros(1)
     elseif spatial == :hetero
@@ -116,7 +117,7 @@ function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix, spatial
         throw(ArgumentError("spatial dependence type $spatial not supported."))
     end
 
-    return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, W)
+    return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, ρ_max, W)
 end
 
 """
