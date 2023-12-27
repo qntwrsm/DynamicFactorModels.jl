@@ -58,7 +58,7 @@ function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
         mul!(et, poly(ε), rand(rng, dist(ε)))
     end
 
-    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), weights(ε))
+    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
 end
 
 """
