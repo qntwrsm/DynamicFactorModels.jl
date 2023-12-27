@@ -146,7 +146,7 @@ struct SpatialMovingAverage{
         all(ρi -> abs(ρi) < ρ_max, ρ)  || throw(DomainError("|ρ| < ρ_max."))
         size(W, 1) == size(W, 2) || throw(DimensionMismatch("W must be square."))
 
-        return new{typeof(ε), typeof(dist), typeof(ρ), typeof(W)}(ε, dist, ρ, ρ_max, W)
+        return new{typeof(ε), typeof(dist), typeof(ρ), typeof(ρ_max), typeof(W)}(ε, dist, ρ, ρ_max, W)
     end
 end
 
