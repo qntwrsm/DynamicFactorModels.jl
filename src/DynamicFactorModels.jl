@@ -30,7 +30,8 @@ export
     # constructors
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
-    Simple, SpatialAutoregression, SpatialMovingAverage,    # error models 
+    Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
+    NormL1, GeneralizedNormL1, NormL1L2,                    # reguralization
 
     # interface methods
     ## getters
@@ -51,6 +52,7 @@ include("show.jl")
 include("interface.jl")
 include("utilities.jl")
 include("fit/utilities.jl")
+include("fit/reguralization.jl")
 include("fit/solver.jl")
 
 end
