@@ -18,7 +18,8 @@ using
     FillArrays,
     Distributions,
     MultivariateStats,
-    Optim
+    Optim,
+    ProximalOperators
 using StatsAPI: StatisticalModel
 using LogExpFunctions: logistic, logit
 
@@ -31,7 +32,6 @@ export
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
-    NormL1, GeneralizedNormL1, NormL1L2,                    # reguralization
 
     # interface methods
     ## getters
