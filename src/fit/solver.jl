@@ -77,6 +77,7 @@ function update_loadings!(
     Σ::AbstractMatrix
 )
     dims = size(Λ)
+    T = length(V)
     Eyf = y * f'
     Eff = f * f'
     for Vt ∈ V
@@ -87,10 +88,10 @@ function update_loadings!(
         λmat = reshape(λ, dims)
         Ωλmat = Σ \ λmat
         
-        return 0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)
+        return (0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)) / T
     end
     ffb = FastForwardBackward()
-    (solution, _) = ffb(x0=zeros(prod(dims)), f=objective, g=regularizer)
+    (solution, _) = ffb(x0=vec(Λ), f=objective, g=regularizer)
     Λ .= reshape(solution, dims)
 
     return nothing
@@ -115,7 +116,7 @@ function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
 end
 
 """
-    update!(μ, y, regularizer)
+    update!(μ, y, regularizer[, Σ])
 
 Update mean specification `μ` using the data minus the common component `y` with
 regularization given by `regularizer`.
@@ -129,6 +130,24 @@ function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     slopes(μ) .= yX / XX
+
+    return nothing
+end
+function update!(μ::Exogenous, y::AbstractMatrix, regularizer::NormL1plusL21, Σ::AbstractMatrix)
+    dims = size(slopes(μ))
+    T = size(regressors(μ), 2)
+    yX = y * regressors(μ)'
+    XX = regressors(μ) * regressors(μ)'
+    
+    function objective(β::AbstractVector)
+        βmat = reshape(β, dims)
+        Ωβmat = Σ \ βmat
+        
+        return (0.5 * dot(Ωβmat, βmat * XX) - dot(Ωβmat, yX)) / T
+    end
+    ffb = FastForwardBackward()
+    (solution, _) = ffb(x0=vec(slopes(μ)), f=objective, g=regularizer)
+    slopes(μ) .= reshape(solution, dims)
 
     return nothing
 end
