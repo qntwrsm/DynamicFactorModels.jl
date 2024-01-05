@@ -14,15 +14,18 @@ module DynamicFactorModels
 
 using 
     LinearAlgebra,
-    Random,
     FillArrays,
-    Distributions,
-    MultivariateStats,
-    Optim,
-    ProximalAlgorithms
+    Random,
+    Distributions
+
 using StatsAPI: StatisticalModel
+
+using MultivariateStats
+
 using LogExpFunctions: logistic, logit
+using Optim
 using ProximalOperators: NormL1, NormL21
+using ProximalAlgorithms
 
 import Base: show, size, copy
 import Statistics: mean, var, cov
