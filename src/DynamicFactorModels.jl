@@ -25,7 +25,7 @@ using MultivariateStats
 using LogExpFunctions: logistic, logit
 using Optim
 using ProximalOperators: NormL1, NormL21
-using ProximalAlgorithms
+using ProximalAlgorithms: FastForwardBackward
 
 import Base: show, size, copy
 import Statistics: mean, var, cov

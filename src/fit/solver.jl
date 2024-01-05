@@ -43,20 +43,55 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
 end
 
 """
-    update_loadings!(Λ, y, f, V, regularizer)
+    update_loadings!(Λ, y, f, V, regularizer[, Ω])
 
-Update factor loadings `Λ` using the data `y`, smoothed factors `f`, and
-smoothed covariance matrix `V` with regularization given by `regularizer`.
+Update factor loadings `Λ` using the data `y`, smoothed factors `f`, smoothed
+covariance matrix `V`, and covariance matrix `Σ` with regularization given by
+`regularizer`.
 
-Update is perfomed using OLS when regularizer is `nothing`.
+Update is perfomed using OLS when regularizer is `nothing` and using an
+accelerated proximal gradient method when regularizer is `NormL1plusL21`.
 """
-function update_loadings!(Λ::AbstractMatrix, y::AbstractMatrix, f::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+function update_loadings!(
+    Λ::AbstractMatrix, 
+    y::AbstractMatrix, 
+    f::AbstractMatrix, 
+    V::AbstractVector, 
+    regularizer::Nothing
+)
     Eyf = y * f'
     Eff = f * f'
     for Vt ∈ V
         Eff .+= Vt
     end
     Λ .= Eyf / Eff
+
+    return nothing
+end
+function update_loadings!(
+    Λ::AbstractMatrix, 
+    y::AbstractMatrix, 
+    f::AbstractMatrix, 
+    V::AbstractVector, 
+    regularizer::NormL1plusL21, 
+    Σ::AbstractMatrix
+)
+    dims = size(Λ)
+    Eyf = y * f'
+    Eff = f * f'
+    for Vt ∈ V
+        Eff .+= Vt
+    end
+
+    function objective(λ::AbstractVector)
+        λmat = reshape(λ, dims)
+        Ωλmat = Σ \ λmat
+        
+        return 0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)
+    end
+    ffb = FastForwardBackward()
+    (solution, _) = ffb(x0=zeros(prod(dims)), f=objective, g=regularizer)
+    Λ .= reshape(solution, dims)
 
     return nothing
 end
@@ -85,8 +120,9 @@ end
 Update mean specification `μ` using the data minus the common component `y` with
 regularization given by `regularizer`.
 
-Update is perfomed using OLS when regularizer is `nothing` for exogeneous mean
-specification.
+Update is perfomed using OLS when regularizer is `nothing` and using an
+accelerated proximal gradient method when regularizer is `NormL1plusL21` for
+exogeneous mean specification.
 """
 update!(μ::ZeroMean, y::AbstractMatrix, regularizer::Nothing) = nothing
 function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
