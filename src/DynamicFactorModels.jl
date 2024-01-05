@@ -18,7 +18,8 @@ using
     FillArrays,
     Distributions,
     MultivariateStats,
-    Optim
+    Optim,
+    ProximalAlgorithms
 using StatsAPI: StatisticalModel
 using LogExpFunctions: logistic, logit
 using ProximalOperators: NormL1, NormL21
