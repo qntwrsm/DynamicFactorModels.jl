@@ -18,20 +18,22 @@ using
     FillArrays,
     Distributions,
     MultivariateStats,
-    Optim,
-    ProximalOperators
+    Optim
 using StatsAPI: StatisticalModel
 using LogExpFunctions: logistic, logit
+using ProximalOperators: NormL1, NormL21
 
 import Base: show, size, copy
 import Statistics: mean, var, cov
 import StatsAPI: params, params!, fit!
+import ProximalOperators: prox!
 
 export
     # constructors
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
+    NormL1plusL21,                                          # regularizers  
 
     # interface methods
     ## getters
