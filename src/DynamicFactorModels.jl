@@ -24,7 +24,7 @@ using MultivariateStats
 
 using LogExpFunctions: logistic, logit
 using Optim
-using ProximalOperators: NormL1, NormL21
+using ProximalOperators: NormL1, NormL21, TotalVariation1D
 using ProximalAlgorithms: FastForwardBackward
 
 import Base: show, size, copy
@@ -37,7 +37,7 @@ export
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
-    NormL1plusL21,                                          # regularizers  
+    NormL1plusL21, TotalVariation1D,                        # regularizers  
 
     # interface methods
     ## getters

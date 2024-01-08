@@ -76,8 +76,6 @@ function update_loadings!(
     regularizer::NormL1plusL21, 
     Σ::AbstractMatrix
 )
-    dims = size(Λ)
-    T = length(V)
     Eyf = y * f'
     Eff = f * f'
     for Vt ∈ V
@@ -85,14 +83,14 @@ function update_loadings!(
     end
 
     function objective(λ::AbstractVector)
-        λmat = reshape(λ, dims)
+        λmat = reshape(λ, size(Λ))
         Ωλmat = Σ \ λmat
         
-        return (0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)) / T
+        return (0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)) / length(V)
     end
     ffb = FastForwardBackward()
     (solution, _) = ffb(x0=vec(Λ), f=objective, g=regularizer)
-    Λ .= reshape(solution, dims)
+    Λ .= reshape(solution, size(Λ))
 
     return nothing
 end
@@ -134,20 +132,18 @@ function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
     return nothing
 end
 function update!(μ::Exogenous, y::AbstractMatrix, regularizer::NormL1plusL21, Σ::AbstractMatrix)
-    dims = size(slopes(μ))
-    T = size(regressors(μ), 2)
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     
     function objective(β::AbstractVector)
-        βmat = reshape(β, dims)
+        βmat = reshape(β, size(slopes(μ)))
         Ωβmat = Σ \ βmat
         
-        return (0.5 * dot(Ωβmat, βmat * XX) - dot(Ωβmat, yX)) / T
+        return (0.5 * dot(Ωβmat, βmat * XX) - dot(Ωβmat, yX)) / size(regressors(μ), 2)
     end
     ffb = FastForwardBackward()
     (solution, _) = ffb(x0=vec(slopes(μ)), f=objective, g=regularizer)
-    slopes(μ) .= reshape(solution, dims)
+    slopes(μ) .= reshape(solution, size(slopes(μ)))
 
     return nothing
 end
@@ -197,7 +193,39 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
     return nothing
 end
-function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
+function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVector, regularizer::TotalVariation1D)
+    Vsum = zero(V[1])
+    for Vt ∈ V
+        Vsum .+= Vt
+    end
+    Eee = resid(ε) * resid(ε)' + Λ * Vsum * Λ'
+
+    # update spatial filter
+    scale = 2.0 * ε.ρ_max
+    offset = ε.ρ_max
+    function objective(ρ::AbstractVector)
+        # Zygote does not support array mutation
+        ρ_trans = scale .* logistic.(ρ) .- offset
+        if length(ρ_trans) == 1
+            G = I - ρ_trans .* weights(ε)
+        else
+            G = I - Diagonal(ρ_trans) * weights(ε)
+        end
+        Ω = G' * (cov(ε) \ G)
+
+        return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
+    end
+    ffb = FastForwardBackward()
+    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
+    spatial(ε) .= scale .* logistic.(solution) .- offset
+
+    # update covariance matrix
+    G = poly(ε)
+    cov(ε).diag .= diag(G * Eee * G') ./ size(resid(ε), 2)
+
+    return nothing
+end
+function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::nothing)
     Vsum = zero(V[1])
     for Vt ∈ V
         Vsum .+= Vt
@@ -216,6 +244,38 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
     end
     opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS())
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
+
+    # update covariance matrix
+    G = poly(ε)
+    cov(ε).diag .= diag(G \ (G \ Eee)') ./ size(resid(ε), 2)
+
+    return nothing
+end
+function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::TotalVariation1D)
+    Vsum = zero(V[1])
+    for Vt ∈ V
+        Vsum .+= Vt
+    end
+    Eee = resid(ε) * resid(ε)' + Λ * Vsum * Λ'
+
+    # update spatial filter
+    scale = 2.0 * ε.ρ_max
+    offset = ε.ρ_max
+    function objective(ρ::AbstractVector)
+        # Zygote does not support array mutation
+        ρ_trans = scale .* logistic.(ρ) .- offset
+        if length(ρ_trans) == 1
+            G = I - ρ_trans .* weights(ε)
+        else
+            G = I - Diagonal(ρ_trans) * weights(ε)
+        end
+        Σ = G * cov(ε) * G'
+
+        return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
+    end
+    ffb = FastForwardBackward()
+    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
+    spatial(ε) .= scale .* logistic.(solution) .- offset
 
     # update covariance matrix
     G = poly(ε)
