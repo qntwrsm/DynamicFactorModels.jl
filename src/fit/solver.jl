@@ -265,9 +265,9 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
         # Zygote does not support array mutation
         ρ_trans = scale .* logistic.(ρ) .- offset
         if length(ρ_trans) == 1
-            G = I - ρ_trans .* weights(ε)
+            G = I + ρ_trans .* weights(ε)
         else
-            G = I - Diagonal(ρ_trans) * weights(ε)
+            G = I + Diagonal(ρ_trans) * weights(ε)
         end
         Σ = G * cov(ε) * G'
 
