@@ -225,7 +225,7 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
     return nothing
 end
-function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::nothing)
+function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::Nothing)
     Vsum = zero(V[1])
     for Vt ∈ V
         Vsum .+= Vt
