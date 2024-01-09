@@ -17,6 +17,8 @@ Initialize the dynamic factor model `model` by `method`.
 When `method` is set to `:data`: 
 - Initialization of the loading matrix is based on principal component analysis
   (PCA) of the data.
+- Initialization of the factor process dynamics is based on the OLS estimates of
+  the autoregressions of the PCA factors.
 - Initialization of the exogeneous mean specification is based on the OLS
   estimates of the slopes based on the residuals, ``yₜ - Λ̂f̂ₜ``.
 - Initialization of the simple error model is based on the sample covariance
@@ -34,42 +36,41 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
         M = fit(PCA, data(model), maxoutdim=size(process(model)), pratio=1.0)
         loadings(model) .= projection(M)
         factors(model) .= transform(M, data(model))
+        
+        # factor dynamics
+        for (r, f) = pairs(eachrow(factors(model)))
+            ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
+            dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
+        end
     end
 
     # initialize mean specification
     init!(mean(model), method.mean, data(model) - loadings(model) * factors(model))
 
     # initialize error specification
-    resid(model) .= data(model) - mean(model) - loadings(model) * factors(model)
+    resid(model) .= data(model) - mean(mean(model)) - loadings(model) * factors(model)
     init!(errors(model), method.error)
         
     return nothing
 end
 
-
-"""
-    init!(μ, method, y)
-
-Initialize the mean specification `μ` by `method` based on the data `y`.
-"""
+# mean specification
 init!(μ::ZeroMean, method::Symbol, y::AbstractMatrix) = nothing
 init!(μ::Exogenous, method::Symbol, y::AbstractMatrix) = method == :data && slopes(μ) .= y / regressors(μ)
 
 
-"""
-    init!(ε, method)
-
-Initialize the error model `ε` by `method`.
-"""
+# error specification
 init!(ε::Simple, method::Symbol) = method == :data && cov(ε).diag .= var(resid(ε), dims=2)
 function init!(ε::SpatialAutoregression, method::Symbol)
     if method == :data
         # estimate spatial filter
         if length(spatial(ε)) == 1
-            spatial(ε) .= dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
+            ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
+            spatial(ε) .= max(-ε.ρ_max, min(ε.ρ_max, ρ))
         else
             for i ∈ eachindex(spatial(ε))
-                spatial(ε)[i] = dot(weights(ε)[i,:] * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:] * resid(ε))
+                ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
+                spatial(ε)[i] = max(-ε.ρ_max, min(ε.ρ_max, ρi))
             end
         end
 
@@ -84,10 +85,12 @@ function init!(ε::SpatialMovingAverage, method::Symbol)
     if method == :data
         # estimate spatial filter
         if length(spatial(ε)) == 1
-            spatial(ε) .= dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
+            ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
+            spatial(ε) .= max(-ε.ρ_max, min(ε.ρ_max, ρ))
         else
             for i ∈ eachindex(spatial(ε))
-                spatial(ε)[i] = dot(weights(ε)[i,:] * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:] * resid(ε))
+                ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
+                spatial(ε)[i] = max(-ε.ρ_max, min(ε.ρ_max, ρi))
             end
         end
 
