@@ -273,4 +273,4 @@ loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model))
-size(model::DynamicFactorModel) = (size(data(model))..., size(factors(model))...)
+size(model::DynamicFactorModel) = (size(data(model))..., size(process(model)))
