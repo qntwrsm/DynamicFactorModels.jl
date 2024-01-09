@@ -214,7 +214,7 @@ function fit!(
         println("Convergence: ", δ < ϵ ? "success" : "failed")
         println("Maximum absolute change: $δ")
         println("Iterations: $iter")
-        println("Objective function value: $(objective(model))")
+        println("Log-likelihood value: $(loglikelihood(model))")
         println("====================")
     end
 

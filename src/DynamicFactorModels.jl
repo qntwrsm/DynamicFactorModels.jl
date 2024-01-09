@@ -22,6 +22,8 @@ using StatsAPI: StatisticalModel
 
 using MultivariateStats
 
+using IrrationalConstants: log2π
+
 using LogExpFunctions: logistic, logit
 using Optim
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
@@ -29,7 +31,7 @@ using ProximalAlgorithms: FastForwardBackward
 
 import Base: show, size, copy
 import Statistics: mean, var, cov
-import StatsAPI: params, params!, fit!
+import StatsAPI: params, params!, fit!, loglikelihood
 import ProximalOperators: prox!
 
 export
@@ -51,7 +53,8 @@ export
     simulate,
 
     # fit
-    fit!
+    fit!,
+    loglikelihood
 
 include("types.jl")
 include("show.jl")

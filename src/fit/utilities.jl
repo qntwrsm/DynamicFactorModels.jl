@@ -150,3 +150,20 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
 end
 
 absdiff(x::AbstractArray, y::AbstractArray) = mapreduce((xi, yi) -> abs(xi - yi), max, x, y)
+
+function loglikelihood(model::DynamicFactorModel)
+    (n, T) = size(model)[1:end-1]
+    (_, _, v, F, _) = filter(model)
+    (y_star, _, d_star, _, _) = state_space(model)
+
+    ll = -0.5 * T * (n * log2π + logdet(cov(model)))
+    e = data(model) .- mean(mean(model))
+    e_star = y_star .- d_star
+    for (t, et) ∈ pairs(eachcol(e))
+        ll -= 0.5 * (logdet(F[t]) + dot(v[t], inv(F[t]), v[t]))
+        mul!(et, loadings(model), e_star[t], -true, true)
+        ll -= 0.5 * dot(et, inv(cov(model)), et)
+    end
+
+    return ll
+end
