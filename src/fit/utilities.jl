@@ -114,6 +114,7 @@ function params(model::DynamicFactorModel)
 
     return θ
 end
+
 function params!(θ::AbstractVector, model::DynamicFactorModel)
     idx = 1
 
@@ -142,7 +143,7 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     # spatial dependence
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
         offset = length(spatial(errors(model)))
-        θ[idx:idx+offset] .= spatial(errors(model))
+        θ[idx:idx+offset-1] .= spatial(errors(model))
     end
 
     return nothing
