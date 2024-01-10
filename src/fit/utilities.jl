@@ -30,12 +30,15 @@ When `method` is set to `:none` no initialization is performed and the model is
 assumed to have been initialized manually before fitting.
 """
 function init!(model::DynamicFactorModel, method::NamedTuple)
-    # initialize factor process
+    # initialize mean specification
+    init!(mean(model), method.mean, data(model))
+
+    # initialize factor component
     if method.factors == :data
-        # PCA
-        M = fit(PCA, data(model), maxoutdim=size(process(model)), pratio=1.0)
+        # factors via PCA
+        M = fit(PCA, data(model) - mean(mean(model)), maxoutdim=size(process(model)), pratio=1.0)
         loadings(model) .= projection(M)
-        factors(model) .= transform(M, data(model))
+        factors(model) .= transform(M, data(model) - mean(mean(model)))
         
         # factor dynamics
         for (r, f) = pairs(eachrow(factors(model)))
@@ -43,9 +46,6 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
             dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
         end
     end
-
-    # initialize mean specification
-    init!(mean(model), method.mean, data(model) - loadings(model) * factors(model))
 
     # initialize error specification
     resid(model) .= data(model) - mean(mean(model)) - loadings(model) * factors(model)
@@ -56,21 +56,20 @@ end
 
 # mean specification
 init!(μ::ZeroMean, method::Symbol, y::AbstractMatrix) = nothing
-init!(μ::Exogenous, method::Symbol, y::AbstractMatrix) = method == :data && slopes(μ) .= y / regressors(μ)
-
+init!(μ::Exogenous, method::Symbol, y::AbstractMatrix) = method == :data && (slopes(μ) .= y / regressors(μ))
 
 # error specification
-init!(ε::Simple, method::Symbol) = method == :data && cov(ε).diag .= var(resid(ε), dims=2)
+init!(ε::Simple, method::Symbol) = method == :data && (cov(ε).diag .= var(resid(ε), dims=2))
 function init!(ε::SpatialAutoregression, method::Symbol)
     if method == :data
         # estimate spatial filter
         if length(spatial(ε)) == 1
             ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
-            spatial(ε) .= max(-ε.ρ_max, min(ε.ρ_max, ρ))
+            spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
         else
             for i ∈ eachindex(spatial(ε))
                 ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
-                spatial(ε)[i] = max(-ε.ρ_max, min(ε.ρ_max, ρi))
+                spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
             end
         end
 
@@ -86,11 +85,11 @@ function init!(ε::SpatialMovingAverage, method::Symbol)
         # estimate spatial filter
         if length(spatial(ε)) == 1
             ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
-            spatial(ε) .= max(-ε.ρ_max, min(ε.ρ_max, ρ))
+            spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
         else
             for i ∈ eachindex(spatial(ε))
                 ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
-                spatial(ε)[i] = max(-ε.ρ_max, min(ε.ρ_max, ρi))
+                spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
             end
         end
 

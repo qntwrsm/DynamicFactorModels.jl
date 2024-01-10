@@ -193,8 +193,8 @@ function fit!(
 
     # optimization
     iter = 0
-    δ = Inf
-    while δ > ϵ && iter < max_iter
+    converged = false
+    while !converged && iter < max_iter
         # update model
         update!(model, regularizer)
 
@@ -202,6 +202,9 @@ function fit!(
         params!(θ, model)
         δ = absdiff(θ, θ_prev)
         copyto!(θ_prev, θ)
+
+        # convergence
+        converged = δ < ϵ || δ < ϵ * maximum(abs, θ)
 
         # update iteration counter
         iter += 1
@@ -211,8 +214,7 @@ function fit!(
     if verbose
         println("Optimization summary")
         println("====================")
-        println("Convergence: ", δ < ϵ ? "success" : "failed")
-        println("Maximum absolute change: $δ")
+        println("Convergence: ", converged ? "success" : "failed")
         println("Iterations: $iter")
         println("Log-likelihood value: $(loglikelihood(model))")
         println("====================")
