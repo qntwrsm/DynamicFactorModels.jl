@@ -166,3 +166,19 @@ function loglikelihood(model::DynamicFactorModel)
 
     return ll
 end
+
+function dof(model::DynamicFactorModel)
+    # factor component
+    k = sum(!iszero, loadings(model)) + length(dynamics(model).diag)
+
+    # mean specification
+    mean(model) isa Exogenous && (k += sum(!iszero, slopes(mean(model))))
+
+    # error specification
+    k += sum(!iszero, cov(errors(model)))
+    if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
+        k += sum(!iszero, diff(spatial(errors(model)))) + 1
+    end
+
+    return k
+end

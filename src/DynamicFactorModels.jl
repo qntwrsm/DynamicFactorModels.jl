@@ -29,9 +29,11 @@ using Optim
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
 using ProximalAlgorithms: FastForwardBackward
 
+using StatsAPI: aic, aicc, bic
+
 import Base: show, size, copy
 import Statistics: mean, var, cov
-import StatsAPI: params, params!, fit!, loglikelihood
+import StatsAPI: params, params!, fit!, loglikelihood, dof, nobs
 import ProximalOperators: prox!
 
 export
@@ -54,7 +56,8 @@ export
 
     # fit
     fit!,
-    loglikelihood
+    loglikelihood,
+    dof, nobs, aic, aicc, bic
 
 include("types.jl")
 include("show.jl")

@@ -274,3 +274,4 @@ process(model::DynamicFactorModel) = model.F
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model))
 size(model::DynamicFactorModel) = (size(data(model))..., size(process(model)))
+nobs(model::DynamicFactorModel) = size(data(model), 2)
