@@ -41,7 +41,7 @@ export
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
-    NormL1plusL21, TotalVariation1D,                        # regularizers  
+    NormL21Weighted, NormL1plusL21, TotalVariation1D,       # regularizers  
 
     # interface methods
     ## getters
