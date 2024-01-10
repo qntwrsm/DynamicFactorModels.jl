@@ -64,7 +64,7 @@ include("show.jl")
 include("interface.jl")
 include("utilities.jl")
 include("fit/utilities.jl")
-include("fit/reguralization.jl")
+include("fit/regularization.jl")
 include("fit/solver.jl")
 
 end

@@ -1,7 +1,7 @@
 #=
 regularization.jl
 
-    Provides a collection of types for reguralization components used in 
+    Provides a collection of types for regularization components used in 
     estimation for dynamic factor models.
 
 @author: Quint Wiersma <q.wiersma@vu.nl>
