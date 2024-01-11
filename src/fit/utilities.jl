@@ -177,7 +177,7 @@ function dof(model::DynamicFactorModel)
     # error specification
     k += sum(!iszero, cov(errors(model)))
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
-        k += sum(!iszero, diff(spatial(errors(model)))) + 1
+        k += sum(!iszero, diff(spatial(errors(model))), init=0) + 1
     end
 
     return k

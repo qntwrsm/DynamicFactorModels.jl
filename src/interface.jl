@@ -175,12 +175,12 @@ function fit!(
     # model summary
     if verbose
         println("Dynamic factor model")
-        println("===========================")
+        println("====================")
         println("Number of series and observations: $(size(model)[1:end-1])")
         println("Number of factors: $(size(model)[end])")
         println("Mean specification: $(Base.typename(typeof(mean(model))).wrapper)")
         println("Error specification: $(Base.typename(typeof(errors(model))).wrapper)")
-        println("===========================")
+        println("====================")
         println()
     end
     
@@ -217,6 +217,9 @@ function fit!(
         println("Convergence: ", converged ? "success" : "failed")
         println("Iterations: $iter")
         println("Log-likelihood value: $(loglikelihood(model))")
+        println("aic: $(aic(model))")
+        println("aicc: $(aicc(model))")
+        println("bic: $(bic(model))")
         println("====================")
     end
 
