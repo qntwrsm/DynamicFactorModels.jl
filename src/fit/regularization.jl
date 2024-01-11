@@ -10,42 +10,6 @@ regularization.jl
 =#
 
 """
-    NormL1plusL21(λ, γ, dim)
-
-With two nonegative scalars λ and γ, return the function
-
-```math
-f(X) = λ ⋅ ∑ |xᵢⱼ| + γ ⋅ ∑ ||xₖ||
-```
-
-and with a nonnegative array parameters λ and γ, return the function
-
-```math
-f(X) = ∑ λᵢⱼ ⋅ |xᵢⱼ| + ∑ γₖ ⋅ ||xₖ||
-```
-
-where ``xₖ`` is the ``k``-th column of ``X`` if `dim == 1`, and the ``k``-th row
-of ``X`` if `dim == 2`. In words, it is the sum of the ``ℓ₁``-norm and sum of
-the Euclidean norms of the columns or rows.
-"""
-struct NormL1plusL21{L1<:NormL1, L21<:Union{NormL21, NormL21Weighted}}
-    l1::L1
-    l21::L21
-end
-
-NormL1plusL21(λ::Real=1, γ::Real=1, dim::Int=1) = NormL1plusL21(NormL1(λ), NormL21(γ, dim))
-NormL1plusL21(λ::T, γ::AbstractVector, dim::Int=1) where T = NormL1plusL21(NormL1(λ), NormL21Weighted(γ, dim))
-
-(f::NormL1plusL21)(x) = f.l1(x) + f.l21(x)
-
-function prox!(y, f::NormL1plusL21, x, γ)
-    prox!(y, f.l1, x, γ)
-    fl21 = prox!(y, f.l21, y, γ)
-
-    return f.l1(y) + fl21
-end
-
-"""
     NormL21Weighted(λ, dim=1)
 
 Return the "sum of ``ℓ₂`` norm" function
@@ -134,4 +98,40 @@ function prox!(Y, f::NormL21Weighted, X, γ)
     end
 
     return n21X
+end
+
+"""
+    NormL1plusL21(λ, γ, dim)
+
+With two nonegative scalars λ and γ, return the function
+
+```math
+f(X) = λ ⋅ ∑ |xᵢⱼ| + γ ⋅ ∑ ||xₖ||
+```
+
+and with a nonnegative array parameters λ and γ, return the function
+
+```math
+f(X) = ∑ λᵢⱼ ⋅ |xᵢⱼ| + ∑ γₖ ⋅ ||xₖ||
+```
+
+where ``xₖ`` is the ``k``-th column of ``X`` if `dim == 1`, and the ``k``-th row
+of ``X`` if `dim == 2`. In words, it is the sum of the ``ℓ₁``-norm and sum of
+the Euclidean norms of the columns or rows.
+"""
+struct NormL1plusL21{L1<:NormL1, L21<:Union{NormL21, NormL21Weighted}}
+    l1::L1
+    l21::L21
+end
+
+NormL1plusL21(λ::Real=1, γ::Real=1, dim::Int=1) = NormL1plusL21(NormL1(λ), NormL21(γ, dim))
+NormL1plusL21(λ::T, γ::AbstractVector, dim::Int=1) where T = NormL1plusL21(NormL1(λ), NormL21Weighted(γ, dim))
+
+(f::NormL1plusL21)(x) = f.l1(x) + f.l21(x)
+
+function prox!(y, f::NormL1plusL21, x, γ)
+    prox!(y, f.l1, x, γ)
+    fl21 = prox!(y, f.l21, y, γ)
+
+    return f.l1(y) + fl21
 end
