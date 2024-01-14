@@ -12,11 +12,10 @@ DynamicFactorModels.jl
 
 module DynamicFactorModels
 
-using 
-    LinearAlgebra,
-    FillArrays,
-    Random,
-    Distributions
+using LinearAlgebra
+using FillArrays
+using Random
+using Distributions
 
 using StatsAPI: StatisticalModel
 
@@ -41,7 +40,7 @@ export
     DynamicFactorModel,                                     # main
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
-    NormL21Weighted, NormL1plusL21, TotalVariation1D,       # regularizers  
+    NormL1plusL21, TotalVariation1D,                        # regularizers  
 
     # interface methods
     ## getters

@@ -27,13 +27,21 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     # update factor loadings and dynamics
     resid(model) .= data(model)
     mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
-    update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors)
+    if regularizer.factors isa Nothing
+        update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors)
+    else
+        update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors, cov(model))
+    end
     update!(process(model), V, Γ)
 
     # update mean specification
     resid(model) .= data(model)
     mul!(resid(model), loadings(model), factors(model), -true, true)
-    update!(mean(model), resid(model), regularizer.mean)
+    if regularizer.mean isa Nothing
+        update!(mean(model), resid(model), regularizer.mean)
+    else
+        update!(mean(model), resid(model), regularizer.mean, cov(model))
+    end
 
     # update error specification
     mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
