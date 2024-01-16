@@ -36,9 +36,9 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     # initialize factor component
     if method.factors == :data
         # factors via PCA
-        M = fit(PCA, data(model) - mean(mean(model)), maxoutdim=size(process(model)), pratio=1.0)
+        M = fit(PCA, data(model) .- mean(mean(model)), maxoutdim=size(process(model)), pratio=1.0)
         loadings(model) .= projection(M)
-        factors(model) .= transform(M, data(model) - mean(mean(model)))
+        factors(model) .= transform(M, data(model) .- mean(mean(model)))
         
         # factor dynamics
         for (r, f) = pairs(eachrow(factors(model)))
@@ -48,7 +48,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     end
 
     # initialize error specification
-    resid(model) .= data(model) - mean(mean(model)) - loadings(model) * factors(model)
+    resid(model) .= data(model) .- mean(mean(model)) - loadings(model) * factors(model)
     init!(errors(model), method.error)
         
     return nothing
