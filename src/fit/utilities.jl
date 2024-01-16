@@ -153,15 +153,25 @@ absdiff(x::AbstractArray, y::AbstractArray) = mapreduce((xi, yi) -> abs(xi - yi)
 function loglikelihood(model::DynamicFactorModel)
     (n, T) = size(model)[1:end-1]
     (_, _, v, F, _) = filter(model)
-    (y_star, _, d_star, _, _) = state_space(model)
+
+    # annihilator matrix
+    if errors(model) isa SpatialAutoregression
+        Hinv = poly(errors(model))' * cov(errors(model)) * poly(errors(model)) 
+        Zt_Hinv = loadings(model)' * Hinv
+    else
+        Zt_Hinv = loadings(model)' / cov(model)
+    end
+    Zt_Hinv_Z = Zt_Hinv * loadings(model)
+    P = loadings(model) * (Zt_Hinv_Z \ Zt_Hinv)
+    M = I - P
 
     ll = -0.5 * T * (n * log2π + logdet(cov(model)))
-    e = data(model) .- mean(mean(model))
-    e_star = y_star .- d_star
-    for (t, et) ∈ pairs(eachcol(e))
+    y_demeaned = data(model) .- mean(mean(model))
+    e = similar(y_demeaned, n)
+    for (t, yt) ∈ pairs(eachcol(y_demeaned))
         ll -= 0.5 * (logdet(F[t]) + dot(v[t], inv(F[t]), v[t]))
-        mul!(et, loadings(model), e_star[t], -true, true)
-        ll -= 0.5 * dot(et, inv(cov(model)), et)
+        mul!(e, M, yt)
+        ll -= 0.5 * dot(e, inv(cov(model)), e)
     end
 
     return ll
