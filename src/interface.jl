@@ -225,3 +225,47 @@ function fit!(
 
     return model
 end
+
+"""
+    forecast(model, periods[, X]) -> forecasts
+
+Forecast `periods` ahead using the dynamic factor model `model`. Future values
+of exogeneous regressors `X` should be provided if the mean specification of
+`model` is `Exogenous`.
+"""
+function forecast(model::DynamicFactorModel, periods::Integer)
+    mean(model) isa Exogenous && throw(ArgumentError("Exogenous regressors X must be provided if mean specification is Exogenous."))
+
+    # forecast
+    (a, _, v, _, K) = filter(model)
+    a_next = similar(a[end])
+    forecasts = similar(data(model), size(model, 1), periods)
+    for h = 1:periods
+        if h == 1 
+            a_next .= dynamics(model) * a[end] + K[end] * v[end]
+        else 
+            a_next .= dynamics(model) * a_next
+        end
+        forecasts[:,h] = mean(mean(model)) .+ loadings(model) * a_next
+    end
+
+    return forecasts
+end
+function forecast(model::DynamicFactorModel, periods::Integer, X::AbstractMatrix)
+    !isa(mean(model), Exogenous) && return forecast(model, periods)
+
+    # forecast
+    (a, _, v, _, K) = filter(model)
+    a_next = similar(a[end])
+    forecasts = similar(data(model), size(model, 1), periods)
+    for h = 1:periods
+        if h == 1 
+            a_next .= dynamics(model) * a[end] + K[end] * v[end]
+        else 
+            a_next .= dynamics(model) * a_next
+        end
+        forecasts[:,h] = slopes(mean(model)) * X[:,h] + loadings(model) * a_next  
+    end
+
+    return forecasts
+end
