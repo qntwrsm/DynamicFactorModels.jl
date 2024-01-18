@@ -126,17 +126,32 @@ function filter(model::DynamicFactorModel)
 
     # filter
     for t ∈ eachindex(y)
-        # forecast error
-        v[t] = y[t] - Z * a[t] - d[t]
-        F[t] = Z * P[t] * Z' + I
+        if all(isnan, y[t])
+            # forecast error
+            v[t] = y[t]
+            F[t] = 1.0 * I(length(y[t]))
 
-        # Kalman gain
-        K[t] = T * P[t] * Z' / F[t]
+            # Kalman gain
+            K[t] = Zeros(reverse(size(Z)))
 
-        # prediction
-        if t < length(y)
-            a[t+1] = T * a[t] + K[t] * v[t]
-            P[t+1] = T * P[t] * (T - K[t] * Z)' + I
+            # prediction
+            if t < length(y)
+                a[t+1] = T * a[t]
+                P[t+1] = T * P[t] * T' + I
+            end
+        else
+            # forecast error
+            v[t] = y[t] - Z * a[t] - d[t]
+            F[t] = Z * P[t] * Z' + I
+
+            # Kalman gain
+            K[t] = T * P[t] * Z' / F[t]
+
+            # prediction
+            if t < length(y)
+                a[t+1] = T * a[t] + K[t] * v[t]
+                P[t+1] = T * P[t] * (T - K[t] * Z)' + I
+            end
         end
     end
 
