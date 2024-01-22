@@ -56,7 +56,10 @@ export
     # fit
     fit!,
     loglikelihood,
-    dof, nobs, aic, aicc, bic
+    dof, nobs, aic, aicc, bic,
+
+    # forecast
+    forecast
 
 include("types.jl")
 include("show.jl")

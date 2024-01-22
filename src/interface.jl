@@ -239,7 +239,7 @@ function forecast(model::DynamicFactorModel, periods::Integer)
     # forecast
     (a, _, v, _, K) = filter(model)
     a_next = similar(a[end])
-    forecasts = similar(data(model), size(model, 1), periods)
+    forecasts = similar(data(model), size(model)[1], periods)
     for h = 1:periods
         if h == 1 
             a_next .= dynamics(model) * a[end] + K[end] * v[end]
@@ -257,7 +257,7 @@ function forecast(model::DynamicFactorModel, periods::Integer, X::AbstractMatrix
     # forecast
     (a, _, v, _, K) = filter(model)
     a_next = similar(a[end])
-    forecasts = similar(data(model), size(model, 1), periods)
+    forecasts = similar(data(model), size(model)[1], periods)
     for h = 1:periods
         if h == 1 
             a_next .= dynamics(model) * a[end] + K[end] * v[end]
