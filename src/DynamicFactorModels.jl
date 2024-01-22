@@ -59,7 +59,10 @@ export
     dof, nobs, aic, aicc, bic,
 
     # forecast
-    forecast
+    forecast,
+
+    # irf
+    girf
 
 include("types.jl")
 include("show.jl")

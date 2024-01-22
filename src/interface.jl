@@ -269,3 +269,12 @@ function forecast(model::DynamicFactorModel, periods::Integer, X::AbstractMatrix
 
     return forecasts
 end
+
+"""
+    girf(model, periods) -> irfs
+
+Compute generalized impulse response functions of Koop et al. (1996) `periods`
+ahead using the dynamic factor model for a unit shock (i.e. a shock of one
+standard deviation in size).
+"""
+girf(model::DynamicFactorModel, periods::Integer) = stack([loadings(model) * dynamics(model)^h for h = 0:periods])
