@@ -72,10 +72,10 @@ function state_space(model::DynamicFactorModel)
 
     # projection components
     if errors(model) isa SpatialAutoregression
-        Hinv = poly(errors(model))' * cov(errors(model)) * poly(errors(model)) 
+        Hinv = poly(errors(model))' * (cov(errors(model)) \ poly(errors(model)))
         Zt_Hinv = loadings(model)' * Hinv
     else
-        Zt_Hinv = loadings(model)' / cov(model)
+        Zt_Hinv = (cov(model)' \ loadings(model))'
     end
     Zt_Hinv_Z = Zt_Hinv * loadings(model)
     
