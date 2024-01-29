@@ -96,7 +96,9 @@ function update_loadings!(
         
         return (0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)) / length(V)
     end
-    ffb = FastForwardBackward()
+    ffb = FastForwardBackward(
+        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
+    )
     (solution, _) = ffb(x0=vec(Λ), f=objective, g=regularizer)
     Λ .= reshape(solution, size(Λ))
 
@@ -149,7 +151,9 @@ function update!(μ::Exogenous, y::AbstractMatrix, regularizer::NormL1plusL21, �
         
         return (0.5 * dot(Ωβmat, βmat * XX) - dot(Ωβmat, yX)) / size(regressors(μ), 2)
     end
-    ffb = FastForwardBackward()
+    ffb = FastForwardBackward(
+        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
+    )
     (solution, _) = ffb(x0=vec(slopes(μ)), f=objective, g=regularizer)
     slopes(μ) .= reshape(solution, size(slopes(μ)))
 
@@ -192,7 +196,12 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS())
+    opt = optimize(
+        objective, 
+        logit.((spatial(ε) .+ offset) ./ scale), 
+        LBFGS(),
+        Optim.Options(g_tol=1e-4)
+    )
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
     # update covariance matrix
@@ -223,7 +232,9 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
     end
-    ffb = FastForwardBackward()
+    ffb = FastForwardBackward(
+        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
+    )
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
@@ -250,7 +261,12 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS())
+    opt = optimize(
+        objective, 
+        logit.((spatial(ε) .+ offset) ./ scale), 
+        LBFGS(),
+        Optim.Options(g_tol=1e-4)
+    )
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
     # update covariance matrix
@@ -281,7 +297,9 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
     end
-    ffb = FastForwardBackward()
+    ffb = FastForwardBackward(
+        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
+    )
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
