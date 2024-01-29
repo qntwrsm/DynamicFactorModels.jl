@@ -23,6 +23,8 @@ using MultivariateStats
 
 using IrrationalConstants: log2π
 
+using Distances
+
 using LogExpFunctions: logistic, logit
 using Optim
 using ProximalOperators: NormL1, NormL21, TotalVariation1D

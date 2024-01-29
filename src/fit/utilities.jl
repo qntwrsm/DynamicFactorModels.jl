@@ -148,8 +148,6 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     return nothing
 end
 
-absdiff(x::AbstractArray, y::AbstractArray) = mapreduce((xi, yi) -> abs(xi - yi), max, x, y)
-
 function loglikelihood(model::DynamicFactorModel)
     (n, T) = size(model)[1:end-1]
     (_, _, v, F, _) = filter(model)

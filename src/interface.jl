@@ -194,13 +194,14 @@ function fit!(
     # optimization
     iter = 0
     converged = false
+    dist = Chebyshev()
     while !converged && iter < max_iter
         # update model
         update!(model, regularizer)
 
-        # compute maximum abs change in parameters
+        # compute distance metric
         params!(θ, model)
-        δ = absdiff(θ, θ_prev)
+        δ = evaluate(dist, θ, θ_prev)
         copyto!(θ_prev, θ)
 
         # convergence
