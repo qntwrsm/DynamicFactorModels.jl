@@ -19,11 +19,11 @@ using Distributions
 
 using StatsAPI: StatisticalModel
 
-using MultivariateStats
+using MultivariateStats: PCA, projection, transform
 
 using IrrationalConstants: log2π
 
-using Distances
+using Distances: evaluate, Chebyshev
 
 using LogExpFunctions: logistic, logit
 using Optim
