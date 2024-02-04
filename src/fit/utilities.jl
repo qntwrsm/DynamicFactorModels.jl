@@ -119,30 +119,30 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
 
     # loadings
     offset = length(loadings(model))
-    θ[idx:idx+offset-1] .= vec(loadings(model))
+    θ[idx:idx+offset-1] = vec(loadings(model))
     idx += offset
 
     # factor dynamics
     offset = length(dynamics(model).diag)
-    θ[idx:idx+offset-1] .= dynamics(model).diag
+    θ[idx:idx+offset-1] = dynamics(model).diag
     idx += offset
 
     # covariance matrix
     offset = length(cov(errors(model)).diag)
-    θ[idx:idx+offset-1] .= cov(errors(model)).diag
+    θ[idx:idx+offset-1] = cov(errors(model)).diag
     idx += offset
 
     # mean
     if mean(model) isa Exogenous
         offset = length(slopes(mean(model)))
-        θ[idx:idx+offset-1] .= vec(slopes(mean(model)))
+        θ[idx:idx+offset-1] = vec(slopes(mean(model)))
         idx += offset
     end
     
     # spatial dependence
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
         offset = length(spatial(errors(model)))
-        θ[idx:idx+offset-1] .= spatial(errors(model))
+        θ[idx:idx+offset-1] = spatial(errors(model))
     end
 
     return nothing

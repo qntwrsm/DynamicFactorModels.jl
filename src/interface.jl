@@ -143,7 +143,7 @@ end
 """
     fit!(
         model;
-        regularizer=(factors=nothing, mean=nothing, error=nothing),   
+        regularizer=(factors=nothing, mean=nothing, error=nothing), 
         init_method=(factors=:data, mean=:data, error=:data), 
         ϵ=1e-4, 
         max_iter=1000, 
@@ -154,9 +154,9 @@ Fit the dynamic factor model described by `model` to the data with tolerance `ϵ
 and maximum number of iterations `max_iter`. If `verbose` is true a summary of
 the model fitting is printed. `init_method` indicates which method is used for
 initialization of the parameters. 'regularizer' indicates the regularization
-method used for estimation.
+method used for fitting.
 
-Estimation is done using the Expectation-Maximization algorithm for obtaining
+Fitting is done using the Expectation-Maximization algorithm for obtaining
 the maximum likelihood estimates of the unregularized model. If a regularizer is
 specified, the model is estimated using the Expectation-Maximization algorithm
 in combination with a proximal minimization algorithm.
@@ -225,6 +225,54 @@ function fit!(
     end
 
     return model
+end
+
+"""
+    model_tuning!(model, regularizers; ic=:bic, verbose=false, kwargs...) -> model_opt
+
+Search for the optimal regularizer in `regularizers` for the dynamic factor
+model `model` using information criterion `ic`. If `verbose` is true, a summary
+of model tuning and progress of the search is printed. Additional keyword
+arguments `kwargs` are passed to the `fit!` function.
+"""
+function model_tuning!(
+    model::DynamicFactorModel,
+    regularizers::AbstractArray;
+    ic::Symbol=:bic,
+    verbose::Bool=false,
+    kwargs...
+)
+    all(keys.(regularizers) ⊇ (:factors, :mean, :error)) || error("regularizers must be a NamedTuple with keys :factors, :mean, and :error.")
+    ic ∉ (:aic, :aicc, :bic) || error("Information criterion $ic not supported.")
+
+    if verbose
+        println("Model tuning summary")
+        println("====================")
+        println("Number of regularizers: $(length(regularizers))")
+        println("Information criterion: $ic")
+        println("====================")
+    end
+
+    # model tuning
+    ic_opt = Inf
+    index_opt = 1
+    @showprogress enabled=verbose for (index, regularizer) ∈ pairs(regularizers)
+        fit!(model, regularizer=regularizer, kwargs...)
+        if eval(ic)(model) < ic_opt 
+            ic_opt = eval(ic)(model)
+            index_opt = index
+        end
+    end
+
+    if verbose
+        println("Model tuning results")
+        println("====================")
+        println("Optimal regularizer index: $(index_opt)")
+        println("Optimal information criterion: $(ic_opt)")
+        println("====================")
+    end
+    
+    return fit!(model, regularizer=regularizers[index_opt], kwargs...)
 end
 
 """

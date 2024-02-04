@@ -30,6 +30,8 @@ using Optim
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
 using ProximalAlgorithms: FastForwardBackward
 
+using ProgressMeter
+
 using StatsAPI: aic, aicc, bic
 
 import Base: show, size, copy
@@ -57,6 +59,7 @@ export
 
     # fit
     fit!,
+    model_tuning!,
     loglikelihood,
     dof, nobs, aic, aicc, bic,
 
