@@ -242,7 +242,7 @@ function model_tuning!(
     verbose::Bool=false,
     kwargs...
 )
-    ic ∉ (:aic, :aicc, :bic) || error("Information criterion $ic not supported.")
+    ic ∉ (:aic, :aicc, :bic) && error("Information criterion $ic not supported.")
 
     if verbose
         println("Model tuning summary")
