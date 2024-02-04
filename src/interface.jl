@@ -242,7 +242,6 @@ function model_tuning!(
     verbose::Bool=false,
     kwargs...
 )
-    all(keys.(regularizers) ⊇ (:factors, :mean, :error)) || error("regularizers must be a NamedTuple with keys :factors, :mean, and :error.")
     ic ∉ (:aic, :aicc, :bic) || error("Information criterion $ic not supported.")
 
     if verbose
