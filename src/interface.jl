@@ -228,7 +228,7 @@ function fit!(
 end
 
 """
-    model_tuning!(model, regularizers; ic=:bic, verbose=false, kwargs...) -> model_opt
+    model_tuning!(model, regularizers; ic=:bic, verbose=false, kwargs...) -> (model_opt, index_opt)
 
 Search for the optimal regularizer in `regularizers` for the dynamic factor
 model `model` using information criterion `ic`. If `verbose` is true, a summary
@@ -254,14 +254,16 @@ function model_tuning!(
 
     # model tuning
     ic_opt = Inf
-    index_opt = 1
+    index_opt = keytype(regularizers)(1)
     @showprogress enabled=verbose for (index, regularizer) ∈ pairs(regularizers)
-        fit!(model, regularizer=regularizer, kwargs...)
+        fit!(model, regularizer=regularizer; kwargs...)
         if eval(ic)(model) < ic_opt 
             ic_opt = eval(ic)(model)
             index_opt = index
         end
     end
+    # re-fit optimal regularizer
+    fit!(model, regularizer=regularizers[index_opt]; kwargs...)
 
     if verbose
         println("Model tuning results")
@@ -271,7 +273,7 @@ function model_tuning!(
         println("====================")
     end
     
-    return fit!(model, regularizer=regularizers[index_opt], kwargs...)
+    return (model, index_opt)
 end
 
 """
