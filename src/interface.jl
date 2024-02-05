@@ -228,17 +228,19 @@ function fit!(
 end
 
 """
-    model_tuning!(model, regularizers; ic=:bic, verbose=false, kwargs...) -> (model_opt, index_opt)
+    model_tuning!(model, regularizers; ic=:bic, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
 
 Search for the optimal regularizer in `regularizers` for the dynamic factor
-model `model` using information criterion `ic`. If `verbose` is true, a summary
-of model tuning and progress of the search is printed. Additional keyword
-arguments `kwargs` are passed to the `fit!` function.
+model `model` using information criterion `ic`. If `parallel` is true, the
+search is performed in parallel. If `verbose` is true, a summary of model tuning
+and progress of the search is printed. Additional keyword arguments `kwargs` are
+passed to the `fit!` function.
 """
 function model_tuning!(
     model::DynamicFactorModel,
     regularizers::AbstractArray;
     ic::Symbol=:bic,
+    parallel::Bool=false,
     verbose::Bool=false,
     kwargs...
 )
@@ -249,21 +251,23 @@ function model_tuning!(
         println("====================")
         println("Number of regularizers: $(length(regularizers))")
         println("Information criterion: $ic")
+        println("Parallel: $(parallel ? "yes" : "no")")
         println("====================")
     end
 
     # model tuning
-    ic_opt = Inf
-    index_opt = keytype(regularizers)(1)
-    @showprogress enabled=verbose for (index, regularizer) ∈ pairs(regularizers)
+    map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
+    θ = map_func(regularizers) do regularizer
         fit!(model, regularizer=regularizer; kwargs...)
-        if eval(ic)(model) < ic_opt 
-            ic_opt = eval(ic)(model)
-            index_opt = index
-        end
+        params(model)
     end
-    # re-fit optimal regularizer
-    fit!(model, regularizer=regularizers[index_opt]; kwargs...)
+    ic_values = map(θ) do θi
+        params!(model, θi)
+        eval(ic)(model)
+    end
+    index_opt = argmin(ic_values)
+    ic_opt = ic_values[index_opt]
+    params!(model, θ[index_opt])
 
     if verbose
         println("====================")

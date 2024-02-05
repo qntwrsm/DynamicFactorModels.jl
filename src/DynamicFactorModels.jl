@@ -12,6 +12,8 @@ DynamicFactorModels.jl
 
 module DynamicFactorModels
 
+using Distributed
+
 using LinearAlgebra
 using FillArrays
 using Random

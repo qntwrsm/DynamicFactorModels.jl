@@ -147,6 +147,39 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
 
     return nothing
 end
+function params!(model::DynamicFactorModel, θ::AbstractVector)
+    idx = 1
+
+    # loadings
+    offset = length(loadings(model))
+    vec(loadings(model)) .= view(θ, idx:idx+offset-1)
+    idx += offset
+
+    # factor dynamics
+    offset = length(dynamics(model).diag)
+    dynamics(model).diag .= view(θ, idx:idx+offset-1)
+    idx += offset
+
+    # covariance matrix
+    offset = length(cov(errors(model)).diag)
+    cov(errors(model)).diag .= view(θ, idx:idx+offset-1)
+    idx += offset
+
+    # mean
+    if mean(model) isa Exogenous
+        offset = length(slopes(mean(model)))
+        vec(slopes(mean(model))) .= view(θ, idx:idx+offset-1)
+        idx += offset
+    end
+    
+    # spatial dependence
+    if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
+        offset = length(spatial(errors(model)))
+        spatial(errors(model)) .= view(θ, idx:idx+offset-1)
+    end
+
+    return nothing
+end
 
 function loglikelihood(model::DynamicFactorModel)
     (n, T) = size(model)[1:end-1]
