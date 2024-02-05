@@ -266,7 +266,6 @@ function model_tuning!(
     fit!(model, regularizer=regularizers[index_opt]; kwargs...)
 
     if verbose
-        println("Model tuning results")
         println("====================")
         println("Optimal regularizer index: $(index_opt)")
         println("Optimal information criterion: $(ic_opt)")
