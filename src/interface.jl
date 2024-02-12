@@ -257,7 +257,9 @@ function model_tuning!(
 
     # model tuning
     map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
+    θ0 = params(model)
     θ = map_func(regularizers) do regularizer
+        params!(model, θ0)
         fit!(model, regularizer=regularizer; kwargs...)
         params(model)
     end
