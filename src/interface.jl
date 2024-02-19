@@ -259,15 +259,23 @@ function model_tuning!(
     map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
     θ0 = params(model)
     θ = map_func(regularizers) do regularizer
-        params!(model, θ0)
-        fit!(model, regularizer=regularizer; kwargs...)
-        params(model)
+        try
+            params!(model, θ0)
+            fit!(model, regularizer=regularizer; kwargs...)
+            params(model)
+        catch
+            missing
+        end
     end
     ic_values = map(θ) do θi
-        params!(model, θi)
-        eval(ic)(model)
+        if all(ismissing.(θi))
+            missing
+        else
+            params!(model, θi)
+            eval(ic)(model)
+        end
     end
-    index_opt = argmin(ic_values)
+    index_opt = argmin(skipmissing(ic_values))
     ic_opt = ic_values[index_opt]
     params!(model, θ[index_opt])
 
@@ -275,6 +283,7 @@ function model_tuning!(
         println("====================")
         println("Optimal regularizer index: $(index_opt)")
         println("Optimal information criterion: $(ic_opt)")
+        println("Failed fits: $(sum(ismissing.(ic_values)))")
         println("====================")
     end
     
