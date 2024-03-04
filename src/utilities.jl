@@ -96,7 +96,7 @@ function state_space(model::DynamicFactorModel)
 
     # initial conditions
     a1 = zeros(Ty, R)
-    P1 = Matrix{Ty}(I, R, R)
+    P1 = reshape((I - kron(dynamics(model), dynamics(model))) \ vec(I(R)), R, R)
 
     return (y_star, Z_star, d_star, a1, P1)
 end
