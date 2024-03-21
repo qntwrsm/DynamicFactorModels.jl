@@ -41,10 +41,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
         factors(model) .= transform(M, data(model) .- mean(mean(model)))
         
         # factor dynamics
-        for (r, f) = pairs(eachrow(factors(model)))
-            ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
-            dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
-        end
+        dynamics(model).diag .= 1.0
     end
 
     # initialize error specification

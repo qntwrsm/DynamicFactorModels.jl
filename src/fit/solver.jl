@@ -112,13 +112,7 @@ Update dynamics of factor process `F` using smoothed covariance matrix `V` and
 smoothed auto-covariance matrix `Γ` using OLS.
 """
 function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
-    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
-    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
-    for t ∈ eachindex(Γ)
-        Ef1f1 .+= V[t]
-        Eff1 .+= Γ[t]
-    end
-    dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
+    dynamics(F).diag .= 1.0
 
     return nothing
 end
