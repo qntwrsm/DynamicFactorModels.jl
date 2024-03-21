@@ -207,7 +207,7 @@ end
 
 function dof(model::DynamicFactorModel)
     # factor component
-    k = sum(!iszero, loadings(model)) + length(dynamics(model).diag)
+    k = sum(!iszero, loadings(model))
 
     # mean specification
     mean(model) isa Exogenous && (k += sum(!iszero, slopes(mean(model))))
