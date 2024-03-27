@@ -11,16 +11,17 @@ interface.jl
 =#
 
 """
-    DynamicFactorModel(y, R, μ, ε) -> model
+    DynamicFactorModel(y, R, μ, ε, dynamics=:stationary) -> model
 
 Construct a dynamic factor model with data `y`, mean specification `μ`, error
-model `ε`, and `R` dynamic factors.
+model `ε`, `R` dynamic factors, and factor dynamics of type `dynamics`.
 """
 function DynamicFactorModel(
     y::AbstractMatrix,
     R::Integer,
     μ::AbstractMeanSpecification,
-    ε::AbstractErrorModel
+    ε::AbstractErrorModel;
+    dynamics::Symbol=:stationary
 )
     (n, T) = size(y)
 
@@ -29,19 +30,28 @@ function DynamicFactorModel(
 
     # instantiate factor process
     Λ = zeros(n, R)
-    F = FactorProcess(
-        Diagonal{Float64}(undef, R),
-        Matrix{Float64}(undef, R, T)
-    )
+    if dynamics == :stationary
+        F = Stationary(
+            Diagonal{Float64}(undef, R),
+            Matrix{Float64}(undef, R, T)
+        )
+    elseif dynamics == :unitroot
+        F = UnitRoot(
+            Vector{Float64}(undef, R),
+            Matrix{Float64}(undef, R, T)
+        )
+    else
+        throw(ArgumentError("Factor dynamics type $dynamics not supported."))
+    end
 
     return DynamicFactorModel(y, μ, ε, Λ, F)
 end
 
 """
-    DynamicFactorModel(dims, μ, ε) -> model
+    DynamicFactorModel(dims, μ, ε, dynamics=:stationary) -> model
 
 Construct a dynamic factor model with dimensions `dims` ``(n, T, R)```, mean
-specification `μ`, and error model `ε`.
+specification `μ`, error model `ε`, and factor dynamics of type `dynamics`.
 """
 function DynamicFactorModel(
     dims::Dims,
@@ -55,10 +65,19 @@ function DynamicFactorModel(
 
     # instantiate factor process
     Λ = zeros(n, R)
-    F = FactorProcess(
-        Diagonal{Float64}(undef, R),
-        Matrix{Float64}(undef, R, T)
-    )
+    if dynamics == :stationary
+        F = Stationary(
+            Diagonal{Float64}(undef, R),
+            Matrix{Float64}(undef, R, T)
+        )
+    elseif dynamics == :unitroot
+        F = UnitRoot(
+            Vector{Float64}(undef, R),
+            Matrix{Float64}(undef, R, T)
+        )
+    else
+        throw(ArgumentError("Factor dynamics type $dynamics not supported."))
+    end
 
     return DynamicFactorModel(Matrix{Float64}(undef, n, T), μ, ε, Λ, F)
 end
@@ -178,6 +197,7 @@ function fit!(
         println("====================")
         println("Number of series and observations: $(size(model)[1:end-1])")
         println("Number of factors: $(size(model)[end])")
+        println("Factor dynamics: $(Base.typename(typeof(process(model))).wrapper)")
         println("Mean specification: $(Base.typename(typeof(mean(model))).wrapper)")
         println("Error specification: $(Base.typename(typeof(errors(model))).wrapper)")
         println("====================")
