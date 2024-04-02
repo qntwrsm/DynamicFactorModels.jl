@@ -56,7 +56,8 @@ specification `μ`, error model `ε`, and factor dynamics of type `dynamics`.
 function DynamicFactorModel(
     dims::Dims,
     μ::AbstractMeanSpecification,
-    ε::AbstractErrorModel
+    ε::AbstractErrorModel;
+    dynamics::Symbol=:stationary
 )
     (n, T, R) = dims
 
