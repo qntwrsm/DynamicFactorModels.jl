@@ -202,7 +202,7 @@ abstract type AbstractFactorProcess end
 
 Stationary factor process with dynamics `ϕ` and factors `f`.
 """
-struct Stationary{Dynamics<:Diagonal, Factors<:AbstractMatrix}
+struct Stationary{Dynamics<:Diagonal, Factors<:AbstractMatrix} <: AbstractFactorProcess
     ϕ::Dynamics
     f::Factors
     function Stationary(ϕ::Diagonal, f::AbstractMatrix)
@@ -218,7 +218,7 @@ end
 
 Unit-root factor process with variance `σ` and factors `f`.
 """
-struct UnitRoot{Variance<:AbstractVector, Factors<:AbstractMatrix}
+struct UnitRoot{Variance<:AbstractVector, Factors<:AbstractMatrix} <: AbstractFactorProcess
     σ::Variance
     f::Factors
     function UnitRoot(σ::AbstractVector, f::AbstractMatrix)
