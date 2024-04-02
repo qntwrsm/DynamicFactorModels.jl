@@ -31,15 +31,9 @@ function DynamicFactorModel(
     # instantiate factor process
     Λ = zeros(n, R)
     if dynamics == :stationary
-        F = Stationary(
-            Diagonal{Float64}(undef, R),
-            Matrix{Float64}(undef, R, T)
-        )
+        F = Stationary(Diagonal{Float64}(undef, R), Matrix{Float64}(undef, R, T))
     elseif dynamics == :unitroot
-        F = UnitRoot(
-            Vector{Float64}(undef, R),
-            Matrix{Float64}(undef, R, T)
-        )
+        F = UnitRoot(ones(R), Matrix{Float64}(undef, R, T))
     else
         throw(ArgumentError("Factor dynamics type $dynamics not supported."))
     end
@@ -67,15 +61,9 @@ function DynamicFactorModel(
     # instantiate factor process
     Λ = zeros(n, R)
     if dynamics == :stationary
-        F = Stationary(
-            Diagonal{Float64}(undef, R),
-            Matrix{Float64}(undef, R, T)
-        )
+        F = Stationary(Diagonal{Float64}(undef, R), Matrix{Float64}(undef, R, T))
     elseif dynamics == :unitroot
-        F = UnitRoot(
-            Vector{Float64}(undef, R),
-            Matrix{Float64}(undef, R, T)
-        )
+        F = UnitRoot(ones(R), Matrix{Float64}(undef, R, T))
     else
         throw(ArgumentError("Factor dynamics type $dynamics not supported."))
     end
