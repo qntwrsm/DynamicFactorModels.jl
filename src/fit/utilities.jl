@@ -40,8 +40,15 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
         loadings(model) .= projection(M)
         factors(model) .= transform(M, data(model) .- mean(mean(model)))
         
-        # factor dynamics
-        dynamics(model).diag .= 1.0
+        # factor process
+        if process(model) isa Stationary
+            for (r, f) = pairs(eachrow(factors(model)))
+                ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
+                dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
+            end
+        elseif process(model) isa UnitRoot
+            var(process(model)) .= var(f, dims=2)
+        end
     end
 
     # initialize error specification
@@ -100,7 +107,9 @@ end
 
 function params(model::DynamicFactorModel)
     # number of parameters
-    n_params = length(loadings(model)) + length(cov(errors(model)).diag) + length(dynamics(model).diag)
+    n_params = length(loadings(model)) + length(cov(errors(model)).diag)
+    process(model) isa Stationary && (n_params += length(dynamics(model).diag))
+    process(model) isa UnitRoot && (n_params += length(var(process(model))))
     errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
     mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
 
@@ -119,10 +128,16 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     θ[idx:idx+offset-1] = vec(loadings(model))
     idx += offset
 
-    # factor dynamics
-    offset = length(dynamics(model).diag)
-    θ[idx:idx+offset-1] = dynamics(model).diag
-    idx += offset
+    # factor process
+    if process(model) isa Stationary
+        offset = length(dynamics(model).diag)
+        θ[idx:idx+offset-1] = dynamics(model).diag
+        idx += offset
+    elseif process(model) isa UnitRoot
+        offset = length(var(process(model)))
+        θ[idx:idx+offset-1] = var(process(model))
+        idx += offset
+    end
 
     # covariance matrix
     offset = length(cov(errors(model)).diag)
@@ -152,10 +167,16 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
     vec(loadings(model)) .= view(θ, idx:idx+offset-1)
     idx += offset
 
-    # factor dynamics
-    offset = length(dynamics(model).diag)
-    dynamics(model).diag .= view(θ, idx:idx+offset-1)
-    idx += offset
+    # factor process
+    if process(model) isa Stationary
+        offset = length(dynamics(model).diag)
+        dynamics(model).diag .= view(θ, idx:idx+offset-1)
+        idx += offset
+    elseif process(model) isa UnitRoot
+        offset = length(var(process(model)))
+        var(process(model)) .= view(θ, idx:idx+offset-1)
+        idx += offset
+    end
 
     # covariance matrix
     offset = length(cov(errors(model)).diag)
@@ -208,6 +229,8 @@ end
 function dof(model::DynamicFactorModel)
     # factor component
     k = sum(!iszero, loadings(model))
+    process(model) isa Stationary && (k += length(dynamics(model).diag))
+    process(model) isa UnitRoot && (k += length(var(process(model))))
 
     # mean specification
     mean(model) isa Exogenous && (k += sum(!iszero, slopes(mean(model))))
