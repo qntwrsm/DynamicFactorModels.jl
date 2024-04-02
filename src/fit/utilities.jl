@@ -47,7 +47,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
                 dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
             end
         elseif process(model) isa UnitRoot
-            var(process(model)) .= var(f, dims=2)
+            var(process(model)) .= var(factors(model), dims=2)
         end
     end
 
