@@ -233,11 +233,11 @@ end
 factors(F::AbstractFactorProcess) = F.f
 size(F::AbstractFactorProcess) = size(factors(F), 1)
 dynamics(F::Stationary) = F.ϕ
-dynamics(F::UnitRoot) = ones(size(F))
+dynamics(F::UnitRoot) = I
 var(F::UnitRoot) = F.σ
 var(F::Stationary) = ones(size(F))
 cov(F::UnitRoot) = Diagonal(var(F))
-cov(F::Stationary) = Diagonal(var(F))
+cov(F::Stationary) = I
 
 # dynamic factor model
 """
