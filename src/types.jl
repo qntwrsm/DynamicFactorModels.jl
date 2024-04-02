@@ -191,14 +191,21 @@ end
 
 # factor process
 """
-    FactorProcess
+    AbstractFactorProcess
 
-Factor process with dynamics `ϕ` and factors `f`.
+Abstract type for factor process. 
 """
-struct FactorProcess{Dynamics<:Diagonal, Factors<:AbstractMatrix}
+abstract type AbstractFactorProcess end
+
+"""
+    Stationary <: AbstractFactorProcess
+
+Stationary factor process with dynamics `ϕ` and factors `f`.
+"""
+struct Stationary{Dynamics<:Diagonal, Factors<:AbstractMatrix} <: AbstractFactorProcess
     ϕ::Dynamics
     f::Factors
-    function FactorProcess(ϕ::Diagonal, f::AbstractMatrix)
+    function Stationary(ϕ::Diagonal, f::AbstractMatrix)
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(ϕ, 1) == size(f, 1) || throw(DimensionMismatch("ϕ and f must have the same number of rows."))
 
@@ -206,10 +213,31 @@ struct FactorProcess{Dynamics<:Diagonal, Factors<:AbstractMatrix}
     end
 end
 
+"""
+    UnitRoot <: AbstractFactorProcess
+
+Unit-root factor process with variance `σ` and factors `f`.
+"""
+struct UnitRoot{Variance<:AbstractVector, Factors<:AbstractMatrix} <: AbstractFactorProcess
+    σ::Variance
+    f::Factors
+    function UnitRoot(σ::AbstractVector, f::AbstractMatrix)
+        all(σi -> σi > 0, σ) || throw(DomainError("σ must be positive."))
+        length(σ) == size(f, 1) || throw(DimensionMismatch("σ and f must have the same number of rows."))
+
+        return new{typeof(σ), typeof(f)}(σ, f)
+    end
+end
+
 # methods
-dynamics(F::FactorProcess) = F.ϕ
-factors(F::FactorProcess) = F.f
-size(F::FactorProcess) = size(factors(F), 1)
+factors(F::AbstractFactorProcess) = F.f
+size(F::AbstractFactorProcess) = size(factors(F), 1)
+dynamics(F::Stationary) = F.ϕ
+dynamics(F::UnitRoot) = I
+var(F::UnitRoot) = F.σ
+var(F::Stationary) = ones(size(F))
+cov(F::UnitRoot) = Diagonal(var(F))
+cov(F::Stationary) = I
 
 # dynamic factor model
 """
@@ -221,8 +249,8 @@ factor loadings `Λ`, and factor process `f`.
 The dynamic factor model is defined as
 
 ```math
-yₜ = μₜ + Λfₜ + εₜ, εₜ ∼ N(0, Σ),
-fₜ = ϕfₜ₋₁ + ηₜ, ηₜ ∼ N(0, I),
+yₜ = μₜ + Λfₜ + εₜ, εₜ ∼ N(0, Σε),
+fₜ = ϕfₜ₋₁ + ηₜ, ηₜ ∼ N(0, Ση),
 ```
 
 where ``yₜ`` is a ``n × 1`` vector of observations, ``μₜ`` is a ``n × 1`` vector
@@ -231,16 +259,17 @@ a ``R × 1`` vector of factors, and ``εₜ`` is a ``n × 1`` vector of errors.
 
 For identification purposes the factors are assumed to be independent, i.e. the
 factor process has diagonal autoregressive dynamics and the disturbances follow 
-a standard multivariate normal distribution (``ηₜ ∼ N(0, I)``). Moreover, the
-dynamics of the independent factors are assumed to be idiosyncratic, i.e. ``ϕᵢ ≠
-ϕⱼ`` for ``i ≠ j``.
+a multivariate normal distribution with diagonal covariance matrix. In the case
+of a stationary process the covariance of the error term is an identity matrix
+(``ηₜ ∼ N(0, I)``). Moreover, the dynamics of the independent factors are
+assumed to be idiosyncratic, i.e. ``ϕᵢ ≠ ϕⱼ`` for ``i ≠ j``.
 """
 struct DynamicFactorModel{
     Data<:AbstractMatrix,
     Mean<:AbstractMeanSpecification,
     Error<:AbstractErrorModel,
     Loadings<:AbstractMatrix,
-    Factors<:FactorProcess,
+    Factors<:AbstractFactorProcess,
 } <: StatisticalModel
     y::Data
     μ::Mean
@@ -252,7 +281,7 @@ struct DynamicFactorModel{
         μ::AbstractMeanSpecification,
         ε::AbstractErrorModel,
         Λ::AbstractMatrix,
-        F::FactorProcess
+        F::AbstractFactorProcess
     )
         size(y, 1) == size(Λ, 1) || throw(DimensionMismatch("y and Λ must have the same number of rows."))
         size(y) == size(resid(ε)) || throw(DimensionMismatch("y and residuals must have the same dimensions."))

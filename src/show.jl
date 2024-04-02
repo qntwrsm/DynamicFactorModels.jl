@@ -10,7 +10,7 @@ show.jl
 =#
 
 # union type for all models
-Models = Union{DynamicFactorModel, FactorProcess, AbstractMeanSpecification, AbstractErrorModel}
+Models = Union{DynamicFactorModel, AbstractFactorProcess, AbstractMeanSpecification, AbstractErrorModel}
 
 function show(io::IO, model::Models)
     print(io, nameof(typeof(model)))
