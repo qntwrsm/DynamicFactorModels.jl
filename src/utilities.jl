@@ -15,7 +15,7 @@ utilities.jl
 Simulate the dynamic factors from the dynamic factor process `F`
 with a burn-in period of `burn` using the random number generator `rng`.
 """
-function simulate(F::FactorProcess; burn::Integer=100, rng::AbstractRNG=Xoshiro())
+function simulate(F::Stationary; burn::Integer=100, rng::AbstractRNG=Xoshiro())
     # burn-in
     f_prev = randn(rng, size(F))
     f_next = similar(f_prev)
@@ -34,7 +34,30 @@ function simulate(F::FactorProcess; burn::Integer=100, rng::AbstractRNG=Xoshiro(
         end
     end
 
-    return FactorProcess(copy(dynamics(F)), f_sim)
+    return Stationary(copy(dynamics(F)), f_sim)
+end
+function simulate(F::UnitRoot; burn::Integer=100, rng::AbstractRNG=Xoshiro())
+    Σhalf = sqrt.(cov(F))
+
+    # burn-in
+    f_prev = Σhalf * randn(rng, size(F))
+    f_next = similar(f_prev)
+    for _ = 1:burn
+        f_next .= f_prev + Σhalf * randn(rng, size(F))
+        f_prev .= f_next
+    end
+
+    # simulate data
+    f_sim = similar(factors(F))
+    for (t, ft) ∈ pairs(eachcol(f_sim))
+        if t == 1
+            ft .= f_prev
+        else
+            ft .= f_sim[:,t-1] + Σhalf * randn(rng, size(F))
+        end
+    end
+
+    return UnitRoot(copy(var(F)), f_sim)
 end
 
 """
@@ -112,6 +135,7 @@ function filter(model::DynamicFactorModel)
     # collapsed state space system
     (y, Z, d, a1, P1) = state_space(model)
     T = dynamics(model)
+    Q = cov(process(model))
 
     # initialize filter output
     a = similar(y, typeof(a1))
@@ -136,7 +160,7 @@ function filter(model::DynamicFactorModel)
         # prediction
         if t < length(y)
             a[t+1] = T * a[t] + K[t] * v[t]
-            P[t+1] = T * P[t] * (T - K[t] * Z)' + I
+            P[t+1] = T * P[t] * (T - K[t] * Z)' + Q
         end
     end
 
