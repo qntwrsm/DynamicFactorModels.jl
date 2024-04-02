@@ -108,11 +108,30 @@ end
 """
     update!(F, V, Γ)
 
-Update dynamics of factor process `F` using smoothed covariance matrix `V` and
-smoothed auto-covariance matrix `Γ` using OLS.
+Update factor process `F` using smoothed covariance matrix `V` and smoothed
+auto-covariance matrix `Γ` using OLS.
 """
-function update!(F::FactorProcess, V::AbstractVector, Γ::AbstractVector)
-    dynamics(F).diag .= 1.0
+function update!(F::Stationary, V::AbstractVector, Γ::AbstractVector)
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+    for t ∈ eachindex(Γ)
+        Ef1f1 .+= V[t]
+        Eff1 .+= Γ[t]
+    end
+    dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
+
+    return nothing
+end
+function update!(F::UnitRoot, V::AbstractVector, Γ::AbstractVector)
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+    @views Eff = factors(F)[:,2:end] * factors(F)[:,2:end]'
+    for t ∈ eachindex(Γ)
+        Ef1f1 .+= V[t]
+        Eff1 .+= Γ[t]
+        Eff .+= V[t+1]
+    end
+    var(F) .= (diag(Eff) .- abs2.(diag(Eff1)) ./ diag(Ef1f1)) / length(Γ)
 
     return nothing
 end
