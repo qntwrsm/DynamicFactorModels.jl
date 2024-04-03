@@ -131,7 +131,7 @@ function update!(F::UnitRoot, V::AbstractVector, Γ::AbstractVector)
         Eff1 .+= Γ[t]
         Eff .+= V[t+1]
     end
-    var(F) .= (diag(Eff) .- abs2.(diag(Eff1)) ./ diag(Ef1f1)) / length(Γ)
+    var(F) .= (diag(Eff) .- abs2.(diag(Eff1)) ./ diag(Ef1f1)) ./ length(Γ)
 
     return nothing
 end
