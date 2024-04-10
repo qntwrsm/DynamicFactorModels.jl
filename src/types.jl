@@ -263,25 +263,29 @@ end
     NelsonSiegelStationary <: AbstractNelsonSiegelFactorProcess
 
 Stationary Nelson-Siegel factor process with decay parameter `λ`, dynamics `ϕ`,
-factors `f`, and zero mean multivariate normal distribution `dist`.
+factors `f`, and zero mean multivariate normal distribution `dist` for
+maturities `τ`.
 """
 struct NelsonSiegelStationary{
     Decay<:Real, 
+    Maturities<:AbstractVector,
     Dynamics<:AbstractMatrix, 
     Factors<:AbstractMatrix, 
     Dist<:ZeroMeanFullNormal
 } <: AbstractFactorProcess
     λ::Decay
+    τ::Maturities
     ϕ::Dynamics
     f::Factors
     dist::Dist
-    function NelsonSiegel(λ::Real, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+    function NelsonSiegel(λ::Real, τ::AbstractVector, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
+        minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
-        return new{typeof(λ), typeof(ϕ), typeof(f), typeof(dist)}(λ, ϕ, f, dist)
+        return new{typeof(λ), typeof(τ), typeof(ϕ), typeof(f), typeof(dist)}(λ, τ, ϕ, f, dist)
     end
 end
 
@@ -289,22 +293,25 @@ end
     NelsonSiegelUnitRoot <: AbstractNelsonSiegelFactorProcess
 
 Unit-root Nelson-Siegel factor process with decay parameter `λ`, factors `f`,
-and zero mean multivariate normal distribution `dist`.
+and zero mean multivariate normal distribution `dist` for maturities `τ`.
 """
 struct NelsonSiegelUnitRoot{
     Decay<:Real, 
+    Maturities<:AbstractVector,
     Factors<:AbstractMatrix, 
     Dist<:ZeroMeanFullNormal
 } <: AbstractFactorProcess
     λ::Decay
+    τ::Maturities
     f::Factors
     dist::Dist
-    function NelsonSiegel(λ::Real, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+    function NelsonSiegel(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
+        minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
-        return new{typeof(λ), typeof(f), typeof(dist)}(λ, f, dist)
+        return new{typeof(λ), typeof(τ), typeof(f), typeof(dist)}(λ, τ, f, dist)
     end
 end
 
