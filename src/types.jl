@@ -228,6 +228,7 @@ struct UnrestrictedStationary{
     f::Factors,
     dist::Dist
     function UnrestrictedStationary(Λ::AbstractMatrix, ϕ::Diagonal, f::AbstractMatrix, dist::ZeroMeanIsoNormal)
+        size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
         size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(ϕ, 1) == size(f, 1) || throw(DimensionMismatch("ϕ and f must have the same number of rows."))
@@ -252,6 +253,7 @@ struct UnrestrictedUnitRoot{
     f::Factors
     dist::Dist
     function UnitRoot(Λ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
+        size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
         size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
@@ -281,6 +283,7 @@ struct NelsonSiegelStationary{
     function NelsonSiegel(λ::Real, τ::AbstractVector, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
         minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
+        length(maturities) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
@@ -308,6 +311,7 @@ struct NelsonSiegelUnitRoot{
     function NelsonSiegel(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
         minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
+        length(maturities) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
