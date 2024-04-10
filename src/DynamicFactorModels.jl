@@ -51,7 +51,7 @@ export
     # interface methods
     ## getters
     data, mean, errors, process, resid, # general
-    factors, loadings, dynamics,        # factors
+    factors, loadings, dynamics, decay, # factors
     slopes, regressors,                 # mean
     cov, var,                           # distribution
     spatial, weights,                   # spatial
