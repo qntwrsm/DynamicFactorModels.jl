@@ -343,7 +343,7 @@ cov(F::AbstractFactorProcess) = Distributions._cov(dist(F))
     DynamicFactorModel <: StatisticalModel
 
 Dynamic factor model with mean specification `μ`, error model `ε`, and factor
-process `f`.
+process `F`.
 
 The dynamic factor model is defined as
 
