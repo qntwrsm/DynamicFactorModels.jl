@@ -341,6 +341,34 @@ dynamics(F::UnrestrictedUnitRoot) = I
 dynamics(F::NelsonSiegelUnitRoot) = I
 dist(F::AbstractFactorProcess) = F.dist
 cov(F::AbstractFactorProcess) = Distributions._cov(dist(F))
+function copy(F::UnrestrictedStationary)
+    Λ = copy(loadings(F))
+    ϕ = copy(dynamics(F))
+    f = copy(factors(F))
+    type = eltype(dist(F))
+
+    return UnrestrictedStationary(Λ, ϕ, f, MvNormal(Zeros{type}(size(F)), one(type)I))
+end
+function copy(F::UnrestrictedUnitRoot)
+    Λ = copy(loadings(F))
+    f = copy(factors(F))
+    dist = MvNormal(Diagonal(var(dist(F))))
+
+    return UnrestrictedUnitRoot(Λ, f, dist)
+end
+function copy(F::NelsonSiegelStationary)
+    τ = copy(maturities(F))
+    ϕ = copy(dynamics(F))
+    f = copy(factors(F))
+
+    return NelsonSiegelStationary(decay(F), τ, ϕ, f, MvNormal(cov(dist)))
+end
+function copy(F::NelsonSiegelUnitRoot)
+    τ = copy(maturities(F))
+    f = copy(factors(F))
+
+    return NelsonSiegelUnitRoot(decay(F), τ, f, MvNormal(cov(dist)))
+end
 
 # dynamic factor model
 """
