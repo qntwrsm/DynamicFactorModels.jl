@@ -204,7 +204,7 @@ function fit!(
         println("====================")
         println("Number of series and observations: $(size(model)[1:end-1])")
         println("Number of factors: $(size(model)[end])")
-        println("Factor dynamics: $(Base.typename(typeof(process(model))).wrapper)")
+        println("Factor specification: $(Base.typename(typeof(process(model))).wrapper)")
         println("Mean specification: $(Base.typename(typeof(mean(model))).wrapper)")
         println("Error specification: $(Base.typename(typeof(errors(model))).wrapper)")
         println("====================")
