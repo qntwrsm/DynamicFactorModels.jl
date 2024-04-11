@@ -225,7 +225,7 @@ struct UnrestrictedStationary{
 } <: AbstractUnrestrictedFactorProcess
     Λ::Loadings
     ϕ::Dynamics
-    f::Factors,
+    f::Factors
     dist::Dist
     function UnrestrictedStationary(Λ::AbstractMatrix, ϕ::Diagonal, f::AbstractMatrix, dist::ZeroMeanIsoNormal)
         size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
