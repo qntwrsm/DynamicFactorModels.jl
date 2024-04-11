@@ -268,7 +268,7 @@ Stationary Nelson-Siegel factor process with decay parameter `λ`, dynamics `ϕ`
 factors `f`, and zero mean multivariate normal distribution `dist` for
 maturities `τ`.
 """
-struct NelsonSiegelStationary{
+mutable struct NelsonSiegelStationary{
     Decay<:Real, 
     Maturities<:AbstractVector,
     Dynamics<:AbstractMatrix, 
@@ -298,7 +298,7 @@ end
 Unit-root Nelson-Siegel factor process with decay parameter `λ`, factors `f`,
 and zero mean multivariate normal distribution `dist` for maturities `τ`.
 """
-struct NelsonSiegelUnitRoot{
+mutable struct NelsonSiegelUnitRoot{
     Decay<:Real, 
     Maturities<:AbstractVector,
     Factors<:AbstractMatrix, 
