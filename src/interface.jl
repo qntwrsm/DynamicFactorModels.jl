@@ -106,13 +106,13 @@ end
 Construct a unit-root factor process with unrestricted loadings of dimensions
 `dims` and with element types `type`.
 """
-function UnrestrictedStationary(dims::Dims; type::Type=Float64)
+function UnrestrictedUnitRoot(dims::Dims; type::Type=Float64)
     (n, T, R) = dims
     Λ = Matrix{type}(undef, n, R)
     f = Matrix{type}(undef, R, T)
     dist = MvNormal(Diagonal{type}(ones(type, R)))
     
-    return UnrestrictedStationary(Λ, f, dist)
+    return UnrestrictedUnitRoot(Λ, f, dist)
 end
 
 """
