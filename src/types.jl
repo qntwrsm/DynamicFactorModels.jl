@@ -247,7 +247,7 @@ mean diagonal multivariate normal distribution `dist`.
 struct UnrestrictedUnitRoot{
     Loadings<:AbstractMatrix, 
     Factors<:AbstractMatrix, 
-    dist<:ZeroMeanDiagNormal
+    Dist<:ZeroMeanDiagNormal
 } <: AbstractUnrestrictedFactorProcess
     Λ::Loadings
     f::Factors
