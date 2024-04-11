@@ -16,9 +16,12 @@ Initialize the dynamic factor model `model` by `method`.
 
 When `method` is set to `:data`: 
 - Initialization of the loading matrix is based on principal component analysis
-  (PCA) of the data.
+  (PCA) of the data if the loaings matrix is unrestricted and based on the value
+  of the decay parameter found in Diebold and Li (2006) if it obeys a
+  Nelson-Siegel structure.
 - Initialization of the factor process dynamics is based on the OLS estimates of
-  the autoregressions of the PCA factors.
+  the autoregressions of the PCA factors or Nelson-Siegel factors estimated
+  using the two-step approach of Diebold and Li (2006).
 - Initialization of the exogeneous mean specification is based on the OLS
   estimates of the slopes based on the residuals, ``yₜ - Λ̂f̂ₜ``.
 - Initialization of the simple error model is based on the sample covariance
@@ -55,6 +58,72 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     resid(model) .= data(model) .- mean(mean(model)) - loadings(model) * factors(model)
     init!(errors(model), method.error)
         
+    return nothing
+end
+
+# factor process
+function init!(F::UnrestrictedStationary, method::Symbol, y::AbstractMatrix)
+    if method.factors == :data
+        # factors and loadings via PCA
+        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        loadings(F) .= projection(M)
+        factors(F) .= transform(M, y)
+        
+        # factor dynamics
+        for (r, f) = pairs(eachrow(factors(model)))
+            ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
+            dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
+        end
+    end
+
+    return nothing
+end
+function init!(F::UnrestrictedUnitRoot, method::Symbol, y::AbstractMatrix)
+    if method.factors == :data
+        # factors and loadings via PCA
+        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        loadings(F) .= projection(M)
+        factors(F) .= transform(M, y)
+        
+        # factor variance
+        var(process(model)) .= var(factors(model), dims=2)
+    end
+
+    return nothing
+end
+function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
+    if method.factors == :data
+        # factors and decay using Diebold and Li (2006)
+        decay(F) = 0.0605
+        Λ = loadings(F)
+        factors(F) .= (Λ' * Λ) \ (Λ' * y)
+        
+        # factor dynamics
+        @views f1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+        @views ff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+        dynamics(F) .= ff1 / f1f1
+
+        # factor variance
+        @views η = factors(F)[:,2:end] - dynamics(F) * factors(F)[:,1:end-1]
+        cov(F).mat .= cov(η, dims=2)
+        cov(F.chol .= cholesky(cov(F).mat))
+    end
+
+    return nothing
+end
+function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
+    if method.factors == :data
+        # factors and decay using Diebold and Li (2006)
+        decay(F) = 0.0605
+        Λ = loadings(F)
+        factors(F) .= (Λ' * Λ) \ (Λ' * y)
+        
+        # factor process
+        @views η = factors(F)[:,2:end] - factors(F)[:,1:end-1]
+        cov(F).mat .= cov(η, dims=2)
+        cov(F.chol .= cholesky(cov(F).mat))
+    end
+
     return nothing
 end
 
