@@ -15,49 +15,26 @@ utilities.jl
 Simulate the dynamic factors from the dynamic factor process `F`
 with a burn-in period of `burn` using the random number generator `rng`.
 """
-function simulate(F::Stationary; burn::Integer=100, rng::AbstractRNG=Xoshiro())
+function simulate(F::AbstractFactorProcess; burn::Integer=100, rng::AbstractRNG=Xoshiro())
     # burn-in
-    f_prev = randn(rng, size(F))
+    f_prev = rand(rng, dist(F))
     f_next = similar(f_prev)
     for _ = 1:burn
-        f_next .= dynamics(F) * f_prev + randn(rng, size(F))
+        f_next .= dynamics(F) * f_prev + rand(rng, dist(F))
         f_prev .= f_next
     end
 
     # simulate data
-    f_sim = similar(factors(F))
-    for (t, ft) ∈ pairs(eachcol(f_sim))
+    F_sim = copy(F)
+    for (t, ft) ∈ pairs(eachcol(factors(F_sim)))
         if t == 1
             ft .= f_prev
         else
-            ft .= dynamics(F) * f_sim[:,t-1] + randn(rng, size(F))
+            ft .= dynamics(F) * factors(F_sim)[:,t-1] + rand(rng, dist(F))
         end
     end
 
-    return Stationary(copy(dynamics(F)), f_sim)
-end
-function simulate(F::UnitRoot; burn::Integer=100, rng::AbstractRNG=Xoshiro())
-    Σhalf = sqrt.(cov(F))
-
-    # burn-in
-    f_prev = Σhalf * randn(rng, size(F))
-    f_next = similar(f_prev)
-    for _ = 1:burn
-        f_next .= f_prev + Σhalf * randn(rng, size(F))
-        f_prev .= f_next
-    end
-
-    # simulate data
-    f_sim = similar(factors(F))
-    for (t, ft) ∈ pairs(eachcol(f_sim))
-        if t == 1
-            ft .= f_prev
-        else
-            ft .= f_sim[:,t-1] + Σhalf * randn(rng, size(F))
-        end
-    end
-
-    return UnitRoot(copy(var(F)), f_sim)
+    return F_sim
 end
 
 """
