@@ -37,22 +37,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     init!(mean(model), method.mean, data(model))
 
     # initialize factor component
-    if method.factors == :data
-        # factors via PCA
-        M = fit(PCA, data(model) .- mean(mean(model)), maxoutdim=size(process(model)), pratio=1.0)
-        loadings(model) .= projection(M)
-        factors(model) .= transform(M, data(model) .- mean(mean(model)))
-        
-        # factor process
-        if process(model) isa Stationary
-            for (r, f) = pairs(eachrow(factors(model)))
-                ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
-                dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
-            end
-        elseif process(model) isa UnitRoot
-            var(process(model)) .= var(factors(model), dims=2)
-        end
-    end
+    init!(factors(model), method.factors, data(model) .- mean(mean(model)))
 
     # initialize error specification
     resid(model) .= data(model) .- mean(mean(model)) - loadings(model) * factors(model)
