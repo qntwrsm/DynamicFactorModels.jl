@@ -116,32 +116,30 @@ function UnrestrictedUnitRoot(dims::Dims; type::Type=Float64)
 end
 
 """
-    NelsonSiegelStationary(dims, τ; type=Float64) -> F
+    NelsonSiegelStationary(T, τ; type=Float64) -> F
 
 Construct a stationary Nelson-Siegel factor process for maturities `τ` with
-dimensions `dims` and element types `type`.
+`T` time series observations and element types `type`.
 """
-function NelsonSiegelStationary(dims::Dims, τ::AbstractVector; type::Type=Float64)
-    (T, R) = dims
+function NelsonSiegelStationary(T::Integer, τ::AbstractVector; type::Type=Float64)
     λ = 0.0609  
-    ϕ = Matrix{type}(undef, R, R)
-    f = Matrix{type}(undef, R, T)
-    dist = MvNormal(Matrix(one(type)I(R)))
+    ϕ = Matrix{type}(undef, 3, 3)
+    f = Matrix{type}(undef, 3, T)
+    dist = MvNormal(Matrix(one(type)I(3)))
     
     return NelsonSiegelStationary(λ, τ, ϕ, f, dist)
 end
 
 """
-    NelsonSiegelUnitRoot(dims, τ; type=Float64) -> F
+    NelsonSiegelUnitRoot(T, τ; type=Float64) -> F
 
 Construct a unit-root Nelson-Siegel factor process for maturities `τ` with
-dimensions `dims` and element types `type`.
+`T` time series observations and element types `type`.
 """
-function NelsonSiegelUnitRoot(dims::Dims, τ::AbstractVector; type::Type=Float64)
-    (T, R) = dims
+function NelsonSiegelUnitRoot(T::Integer, τ::AbstractVector; type::Type=Float64)
     λ = 0.0609 
-    f = Matrix{type}(undef, R, T)
-    dist = MvNormal(Matrix(one(type)I(R)))
+    f = Matrix{type}(undef, 3, T)
+    dist = MvNormal(Matrix(one(type)I(3)))
     
     return NelsonSiegelUnitRoot(λ, τ, f, dist)
 end

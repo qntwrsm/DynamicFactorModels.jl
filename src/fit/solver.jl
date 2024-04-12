@@ -112,14 +112,14 @@ function update_loadings!(
     end
 
     function objective(λ::AbstractVector)
-        decay(F) = exp(λ[1])
+        F.λ = exp(λ[1])
         Λ = loadings(F)
         ΩΛ = Σ \ Λ
         
         return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
     end
     opt = optimize(objective, [log(decay(F))], LBFGS(), Optim.Options(g_tol=1e-4))
-    decay(F) .= exp(Optim.minimizer(opt)[1])
+    F.λ = exp(Optim.minimizer(opt)[1])
 
     return nothing
 end

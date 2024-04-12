@@ -274,16 +274,16 @@ mutable struct NelsonSiegelStationary{
     Dynamics<:AbstractMatrix, 
     Factors<:AbstractMatrix, 
     Dist<:ZeroMeanFullNormal
-} <: AbstractFactorProcess
+} <: AbstractNelsonSiegelFactorProcess
     λ::Decay
     τ::Maturities
     ϕ::Dynamics
     f::Factors
     dist::Dist
-    function NelsonSiegel(λ::Real, τ::AbstractVector, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+    function NelsonSiegelStationary(λ::Real, τ::AbstractVector, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
         minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
-        length(maturities) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
+        length(τ) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
@@ -303,15 +303,15 @@ mutable struct NelsonSiegelUnitRoot{
     Maturities<:AbstractVector,
     Factors<:AbstractMatrix, 
     Dist<:ZeroMeanFullNormal
-} <: AbstractFactorProcess
+} <: AbstractNelsonSiegelFactorProcess
     λ::Decay
     τ::Maturities
     f::Factors
     dist::Dist
-    function NelsonSiegel(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+    function NelsonSiegelUnitRoot(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
         minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
-        length(maturities) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
+        length(τ) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
         size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 

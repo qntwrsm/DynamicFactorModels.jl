@@ -79,7 +79,7 @@ end
 function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
     if method.factors == :data
         # factors and decay using Diebold and Li (2006)
-        decay(F) = 0.0605
+        F.λ = 0.0605
         Λ = loadings(F)
         factors(F) .= (Λ' * Λ) \ (Λ' * y)
         
@@ -99,7 +99,7 @@ end
 function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
     if method.factors == :data
         # factors and decay using Diebold and Li (2006)
-        decay(F) = 0.0605
+        F.λ = 0.0605
         Λ = loadings(F)
         factors(F) .= (Λ' * Λ) \ (Λ' * y)
         
@@ -161,6 +161,7 @@ end
 
 function params(model::DynamicFactorModel)
     (n, _, R) = size(model)
+
     # number of parameters
     n_params = n
     process(model) isa AbstractUnrestrictedFactorProcess && (n_params += (n + 1) * R)
@@ -245,7 +246,7 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         vec(loadings(model)) .= view(θ, idx:idx+offset-1)
         idx += offset
     elseif process(model) isa AbstractNelsonSiegelFactorProcess
-        decay(process(model)) = θ[idx]
+        process(model).λ = θ[idx]
         idx += 1
     end
 
@@ -341,7 +342,7 @@ function dof(model::DynamicFactorModel)
     R = size(process(model))
 
     # factor component
-    process(model) isa AbstractUnrestrictedFactorProcess && k = sum(!iszero, loadings(model)) + R
+    process(model) isa AbstractUnrestrictedFactorProcess && (k = sum(!iszero, loadings(model)) + R)
     process(model) isa AbstractNelsonSiegelFactorProcess && (k = 1 + (R * (3R + 1)) ÷ 2)
     process(model) isa NelsonSiegelUnitRoot && (k -= R^2)
 
