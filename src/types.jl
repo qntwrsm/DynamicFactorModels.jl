@@ -252,7 +252,7 @@ struct UnrestrictedUnitRoot{
     Λ::Loadings
     f::Factors
     dist::Dist
-    function UnitRoot(Λ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
+    function UnrestrictedUnitRoot(Λ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
         size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
         size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
