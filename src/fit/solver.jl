@@ -150,7 +150,7 @@ function update_dynamics!(F::UnrestrictedUnitRoot, V::AbstractVector, Γ::Abstra
         Eff1 .+= Γ[t]
         Eff .+= V[t+1]
     end
-    cov(F).diag .= (diag(Eff) .- abs2.(diag(Eff1)) ./ diag(Ef1f1)) ./ length(Γ)
+    cov(F).diag .= (diag(Eff) .- 2.0 .* diag(Eff1) .+ diag(Ef1f1)) ./ length(Γ)
 
     return nothing
 end
@@ -178,7 +178,7 @@ function update_dynamics!(F::NelsonSiegelUnitRoot, V::AbstractVector, Γ::Abstra
         Eff1 .+= Γ[t]
         Eff .+= V[t+1]
     end
-    cov(F).mat .= (Eff - Eff1 * (Ef1f1 \ Eff1')) ./ length(Γ)
+    cov(F).mat .= (Eff .- Eff1 .- Eff1' .+ Ef1f1) ./ length(Γ)
     cov(F).chol .= cholesky(cov(F).mat)
 
     return nothing
