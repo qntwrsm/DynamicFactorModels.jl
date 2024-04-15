@@ -79,7 +79,7 @@ end
 function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and decay using Diebold and Li (2006)
-        F.λ = 0.0605
+        F.λ = 0.0609
         Λ = loadings(F)
         factors(F) .= (Λ' * Λ) \ (Λ' * y)
         
@@ -99,7 +99,7 @@ end
 function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and decay using Diebold and Li (2006)
-        F.λ = 0.0605
+        F.λ = 0.0609
         Λ = loadings(F)
         factors(F) .= (Λ' * Λ) \ (Λ' * y)
         
