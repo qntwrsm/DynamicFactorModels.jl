@@ -165,7 +165,7 @@ function update_dynamics!(F::NelsonSiegelStationary, V::AbstractVector, Γ::Abst
     end
     dynamics(F) .= Eff1 / Ef1f1
     cov(F).mat .= (Eff - dynamics(F) * Eff1') ./ length(Γ)
-    cov(F).chol .= cholesky(cov(F).mat)
+    cov(F).chol.factors .= cholesky(Hermitian(cov(F).mat)).factors
 
     return nothing
 end
@@ -179,7 +179,7 @@ function update_dynamics!(F::NelsonSiegelUnitRoot, V::AbstractVector, Γ::Abstra
         Eff .+= V[t+1]
     end
     cov(F).mat .= (Eff .- Eff1 .- Eff1' .+ Ef1f1) ./ length(Γ)
-    cov(F).chol .= cholesky(cov(F).mat)
+    cov(F).chol.factors .= cholesky(Hermitian(cov(F).mat)).factors
 
     return nothing
 end

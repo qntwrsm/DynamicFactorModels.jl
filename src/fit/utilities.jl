@@ -37,7 +37,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     init!(mean(model), method.mean, data(model))
 
     # initialize factor component
-    init!(factors(model), method.factors, data(model) .- mean(mean(model)))
+    init!(process(model), method.factors, data(model) .- mean(mean(model)))
 
     # initialize error specification
     resid(model) .= data(model) .- mean(mean(model)) - loadings(model) * factors(model)
@@ -48,36 +48,36 @@ end
 
 # factor process
 function init!(F::UnrestrictedStationary, method::Symbol, y::AbstractMatrix)
-    if method.factors == :data
+    if method == :data
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
         loadings(F) .= projection(M)
         factors(F) .= transform(M, y)
         
         # factor dynamics
-        for (r, f) = pairs(eachrow(factors(model)))
+        for (r, f) = pairs(eachrow(factors(F)))
             ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
-            dynamics(model).diag[r] = max(-0.99, min(0.99, ϕi))
+            dynamics(F).diag[r] = max(-0.99, min(0.99, ϕi))
         end
     end
 
     return nothing
 end
 function init!(F::UnrestrictedUnitRoot, method::Symbol, y::AbstractMatrix)
-    if method.factors == :data
+    if method == :data
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
         loadings(F) .= projection(M)
         factors(F) .= transform(M, y)
         
         # factor variance
-        var(process(model)) .= var(factors(model), dims=2)
+        cov(F).diag .= var(factors(F), dims=2)
     end
 
     return nothing
 end
 function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
-    if method.factors == :data
+    if method == :data
         # factors and decay using Diebold and Li (2006)
         F.λ = 0.0605
         Λ = loadings(F)
@@ -91,13 +91,13 @@ function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
         # factor variance
         @views η = factors(F)[:,2:end] - dynamics(F) * factors(F)[:,1:end-1]
         cov(F).mat .= cov(η, dims=2)
-        cov(F.chol .= cholesky(cov(F).mat))
+        cov(F).chol.factors .= cholesky(cov(F).mat).factors
     end
 
     return nothing
 end
 function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
-    if method.factors == :data
+    if method == :data
         # factors and decay using Diebold and Li (2006)
         F.λ = 0.0605
         Λ = loadings(F)
@@ -106,7 +106,7 @@ function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
         # factor process
         @views η = factors(F)[:,2:end] - factors(F)[:,1:end-1]
         cov(F).mat .= cov(η, dims=2)
-        cov(F.chol .= cholesky(cov(F).mat))
+        cov(F).chol.factors .= cholesky(cov(F).mat).factors
     end
 
     return nothing
@@ -165,7 +165,7 @@ function params(model::DynamicFactorModel)
     # number of parameters
     n_params = n
     process(model) isa AbstractUnrestrictedFactorProcess && (n_params += (n + 1) * R)
-    process(model) isa AbstractNelsonSiegelFactorProcess && (n_params += 1 + (R * (3R + 1)) ÷ 2)
+    process(model) isa AbstractNelsonSiegelFactorProcess && (n_params += 1 + 2R^2)
     process(model) isa NelsonSiegelUnitRoot && (n_params -= R^2)
     errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
     mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
@@ -250,17 +250,6 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         idx += 1
     end
 
-    # factor process
-    if process(model) isa Stationary
-        offset = length(dynamics(model).diag)
-        dynamics(model).diag .= view(θ, idx:idx+offset-1)
-        idx += offset
-    elseif process(model) isa UnitRoot
-        offset = length(var(process(model)))
-        var(process(model)) .= view(θ, idx:idx+offset-1)
-        idx += offset
-    end
-
     # factor dynamics and variance
     if process(model) isa UnrestrictedStationary
         # dynamics
@@ -280,13 +269,13 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         # variance
         offset = length(cov(process(model)))
         vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
-        cov(process(model)).chol .= cholesky(cov(process(model)).mat)
+        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
         offset = length(cov(process(model)))
         vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
-        cov(process(model)).chol .= cholesky(cov(process(model)).mat)
+        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
         idx += offset
     end
 
