@@ -105,8 +105,7 @@ function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
         
         # factor process
         @views η = factors(F)[:,2:end] - factors(F)[:,1:end-1]
-        cov(F).mat .= cov(η, dims=2)
-        cov(F).chol.factors .= cholesky(cov(F).mat).factors
+        cov(F).diag .= var(η, dims=2)
     end
 
     return nothing
@@ -166,7 +165,7 @@ function params(model::DynamicFactorModel)
     n_params = n
     process(model) isa AbstractUnrestrictedFactorProcess && (n_params += (n + 1) * R)
     process(model) isa AbstractNelsonSiegelFactorProcess && (n_params += 1 + 2R^2)
-    process(model) isa NelsonSiegelUnitRoot && (n_params -= R^2)
+    process(model) isa NelsonSiegelUnitRoot && (n_params -= 2R^2 - R)
     errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
     mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
 
@@ -212,8 +211,8 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
-        offset = length(cov(process(model)))
-        θ[idx:idx+offset-1] = vec(cov(process(model)))
+        offset = length(cov(process(model)).diag)
+        θ[idx:idx+offset-1] = cov(process(model)).diag
         idx += offset
     end
 
@@ -273,9 +272,8 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
-        offset = length(cov(process(model)))
-        vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
-        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
+        offset = length(cov(process(model)).diag)
+        cov(process(model)).diag .= view(θ, idx:idx+offset-1)
         idx += offset
     end
 
@@ -333,7 +331,7 @@ function dof(model::DynamicFactorModel)
     # factor component
     process(model) isa AbstractUnrestrictedFactorProcess && (k = sum(!iszero, loadings(model)) + R)
     process(model) isa AbstractNelsonSiegelFactorProcess && (k = 1 + (R * (3R + 1)) ÷ 2)
-    process(model) isa NelsonSiegelUnitRoot && (k -= R^2)
+    process(model) isa NelsonSiegelUnitRoot && (k -= (R * (3R - 1)) ÷ 2)
 
     # mean specification
     mean(model) isa Exogenous && (k += sum(!iszero, slopes(mean(model))))

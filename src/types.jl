@@ -296,19 +296,20 @@ end
     NelsonSiegelUnitRoot <: AbstractNelsonSiegelFactorProcess
 
 Unit-root Nelson-Siegel factor process with decay parameter `λ`, factors `f`,
-and zero mean multivariate normal distribution `dist` for maturities `τ`.
+and zero mean diagonal multivariate normal distribution `dist` for maturities
+`τ`.
 """
 mutable struct NelsonSiegelUnitRoot{
     Decay<:Real, 
     Maturities<:AbstractVector,
     Factors<:AbstractMatrix, 
-    Dist<:ZeroMeanFullNormal
+    Dist<:ZeroMeanDiagNormal
 } <: AbstractNelsonSiegelFactorProcess
     λ::Decay
     τ::Maturities
     f::Factors
     dist::Dist
-    function NelsonSiegelUnitRoot(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+    function NelsonSiegelUnitRoot(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
         λ > 0 || throw(DomainError("λ must be positive"))
         minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
         length(τ) >= 3 || throw(ArgumentError("R must be less than or equal to n."))

@@ -139,7 +139,7 @@ Construct a unit-root Nelson-Siegel factor process for maturities `τ` with
 function NelsonSiegelUnitRoot(T::Integer, τ::AbstractVector; type::Type=Float64)
     λ = 0.0609 
     f = Matrix{type}(undef, 3, T)
-    dist = MvNormal(Matrix(one(type)I(3)))
+    dist = MvNormal(Diagonal{type}(ones(type, 3)))
     
     return NelsonSiegelUnitRoot(λ, τ, f, dist)
 end
