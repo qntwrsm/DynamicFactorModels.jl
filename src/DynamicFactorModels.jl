@@ -44,6 +44,8 @@ import ProximalOperators: prox!
 export
     # constructors
     DynamicFactorModel,                                     # main
+    UnrestrictedStationary, UnrestrictedUnitRoot,           # unrestricted factor processes
+    NelsonSiegelStationary, NelsonSiegelUnitRoot,           # Nelson-Siegel factor processes
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
     NormL1plusL21, TotalVariation1D,                        # regularizers  
@@ -51,7 +53,7 @@ export
     # interface methods
     ## getters
     data, mean, errors, process, resid, # general
-    factors, loadings, dynamics,        # factors
+    factors, loadings, dynamics, decay, # factors
     slopes, regressors,                 # mean
     cov, var,                           # distribution
     spatial, weights,                   # spatial

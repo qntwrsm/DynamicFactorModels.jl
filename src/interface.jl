@@ -11,64 +11,19 @@ interface.jl
 =#
 
 """
-    DynamicFactorModel(y, R, μ, ε, dynamics=:stationary) -> model
+    DynamicFactorModel(dims, μ, ε, F; type=Float64) -> model
 
-Construct a dynamic factor model with data `y`, mean specification `μ`, error
-model `ε`, `R` dynamic factors, and factor dynamics of type `dynamics`.
-"""
-function DynamicFactorModel(
-    y::AbstractMatrix,
-    R::Integer,
-    μ::AbstractMeanSpecification,
-    ε::AbstractErrorModel;
-    dynamics::Symbol=:stationary
-)
-    (n, T) = size(y)
-
-    # check model specification
-    R > n && throw(ArgumentError("R must be less than or equal to n."))
-
-    # instantiate factor process
-    Λ = zeros(n, R)
-    if dynamics == :stationary
-        F = Stationary(Diagonal{Float64}(undef, R), Matrix{Float64}(undef, R, T))
-    elseif dynamics == :unitroot
-        F = UnitRoot(ones(R), Matrix{Float64}(undef, R, T))
-    else
-        throw(ArgumentError("Factor dynamics type $dynamics not supported."))
-    end
-
-    return DynamicFactorModel(y, μ, ε, Λ, F)
-end
-
-"""
-    DynamicFactorModel(dims, μ, ε, dynamics=:stationary) -> model
-
-Construct a dynamic factor model with dimensions `dims` ``(n, T, R)```, mean
-specification `μ`, error model `ε`, and factor dynamics of type `dynamics`.
+Construct a dynamic factor model with dimensions `dims` ``(n, T)``, element type
+`type`, mean specification `μ`, error model `ε`, and factor process `F`.
 """
 function DynamicFactorModel(
     dims::Dims,
     μ::AbstractMeanSpecification,
-    ε::AbstractErrorModel;
-    dynamics::Symbol=:stationary
+    ε::AbstractErrorModel,
+    F::AbstractFactorProcess;
+    type::Type=Float64
 )
-    (n, T, R) = dims
-
-    # check model specification
-    R > n && throw(ArgumentError("R must be less than or equal to n."))
-
-    # instantiate factor process
-    Λ = zeros(n, R)
-    if dynamics == :stationary
-        F = Stationary(Diagonal{Float64}(undef, R), Matrix{Float64}(undef, R, T))
-    elseif dynamics == :unitroot
-        F = UnitRoot(ones(R), Matrix{Float64}(undef, R, T))
-    else
-        throw(ArgumentError("Factor dynamics type $dynamics not supported."))
-    end
-
-    return DynamicFactorModel(Matrix{Float64}(undef, n, T), μ, ε, Λ, F)
+    return DynamicFactorModel(Matrix{type}(undef, dims), μ, ε, Λ, F)
 end
 
 """
@@ -80,52 +35,113 @@ series.
 Exogenous(X::AbstractMatrix, n::Integer) = Exogenous(X, similar(X, (n, size(X, 1))))
 
 """
-    Simple(n, T) -> ε
+    Simple(n, T; type=Float64) -> ε
 
-Construct a simple error model with `n` time series and `T` observations.
+Construct a simple error model with `n` time series, `T` observations, and
+element type `type`.
 """
-Simple(n::Integer, T::Integer) = Simple(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)))
+Simple(n::Integer, T::Integer; type::Type=Float64) = Simple(Array{type}(undef, n, T), MvNormal(one(type)I(n)))
 
 """
-    SpatialAutoregression(n, T, W, spatial=:homo) -> ε
+    SpatialAutoregression(n, T, W; spatial=:homo, type=Float64) -> ε
 
 Construct a spatial autoregression error model with `n` time series, `T`
-observations, spatial weight matrix `W`, and spatial dependence of type
-`spatial`.
+observations, element type `type`, spatial weight matrix `W`, and spatial
+dependence of type `spatial`.
 """
-function SpatialAutoregression(n::Integer, T::Integer, W::AbstractMatrix, spatial::Symbol=:homo)
+function SpatialAutoregression(n::Integer, T::Integer, W::AbstractMatrix; spatial::Symbol=:homo, type::Type=Float64)
     # spatial dependence
     ρ_max = max(inv(opnorm(W, 1)), inv(opnorm(W, Inf)))
     if spatial == :homo
-        ρ = zeros(1)
+        ρ = zeros(type, 1)
     elseif spatial == :hetero
-        ρ = zeros(n)
+        ρ = zeros(type, n)
     else
         throw(ArgumentError("spatial dependence type $spatial not supported."))
     end
 
-    return SpatialAutoregression(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, ρ_max, W)
+    return SpatialAutoregression(Array{type}(undef, n, T), MvNormal(one(type)I(n)), ρ, ρ_max, W)
 end
 
 """
-    SpatialMovingAverage(n, T, W, spatial=:homo) -> ε
+    SpatialMovingAverage(n, T, W; spatial=:homo, type=Float64) -> ε
 
 Construct a spatial moving average error model with `n` time series, `T`
-observations, spatial weight matrix `W`, and spatial dependence of type
-`spatial`.
+observations, element type `type`, spatial weight matrix `W`, and spatial
+dependence of type `spatial`.
 """
-function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix, spatial::Symbol=:homo)
+function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix; spatial::Symbol=:homo, type::Type=Float64)
     # spatial dependence
     ρ_max = max(inv(opnorm(W, 1)), inv(opnorm(W, Inf)))
     if spatial == :homo
-        ρ = zeros(1)
+        ρ = zeros(type, 1)
     elseif spatial == :hetero
-        ρ = zeros(n)
+        ρ = zeros(type, n)
     else
         throw(ArgumentError("spatial dependence type $spatial not supported."))
     end
 
-    return SpatialMovingAverage(Array{Float64}(undef, n, T), MvNormal((1.0I)(n)), ρ, ρ_max, W)
+    return SpatialMovingAverage(Array{type}(undef, n, T), MvNormal(one(type)I(n)), ρ, ρ_max, W)
+end
+
+"""
+    UnrestrictedStationary(dims; type=Float64) -> F
+
+Construct a stationary factor process with unrestricted loadings of dimensions
+`dims` and with element types `type`.
+"""
+function UnrestrictedStationary(dims::Dims; type::Type=Float64)
+    (n, T, R) = dims
+    Λ = Matrix{type}(undef, n, R)
+    ϕ = Diagonal{type}(undef, R)
+    f = Matrix{type}(undef, R, T)
+    dist = MvNormal(Zeros{type}(R), one(type)I)
+    
+    return UnrestrictedStationary(Λ, ϕ, f, dist)
+end
+
+"""
+    UnrestrictedUnitRoot(dims; type=Float64) -> F
+
+Construct a unit-root factor process with unrestricted loadings of dimensions
+`dims` and with element types `type`.
+"""
+function UnrestrictedUnitRoot(dims::Dims; type::Type=Float64)
+    (n, T, R) = dims
+    Λ = Matrix{type}(undef, n, R)
+    f = Matrix{type}(undef, R, T)
+    dist = MvNormal(Diagonal{type}(ones(type, R)))
+    
+    return UnrestrictedUnitRoot(Λ, f, dist)
+end
+
+"""
+    NelsonSiegelStationary(T, τ; type=Float64) -> F
+
+Construct a stationary Nelson-Siegel factor process for maturities `τ` with
+`T` time series observations and element types `type`.
+"""
+function NelsonSiegelStationary(T::Integer, τ::AbstractVector; type::Type=Float64)
+    λ = 0.0609  
+    ϕ = Matrix{type}(undef, 3, 3)
+    f = Matrix{type}(undef, 3, T)
+    dist = MvNormal(Matrix(one(type)I(3)))
+    
+    return NelsonSiegelStationary(λ, τ, ϕ, f, dist)
+end
+
+"""
+    NelsonSiegelUnitRoot(T, τ; type=Float64) -> F
+
+Construct a unit-root Nelson-Siegel factor process for maturities `τ` with
+`T` time series observations and element types `type`.
+"""
+function NelsonSiegelUnitRoot(T::Integer, τ::AbstractVector; type::Type=Float64)
+    λ = 0.0609 
+    f = Matrix{type}(undef, 3, T)
+    dist = MvNormal(Diagonal{type}(ones(type, 3)))
+    
+    return NelsonSiegelUnitRoot(λ, τ, f, dist)
 end
 
 """
@@ -145,7 +161,7 @@ function simulate(model::DynamicFactorModel; burn::Integer=100, rng::AbstractRNG
     # simulate data
     y_sim = mean(mean(model)) .+ loadings(model) * factors(F_sim) + resid(ε_sim)
 
-    return DynamicFactorModel(y_sim, copy(mean(model)), ε_sim, copy(loadings(model)), F_sim)
+    return DynamicFactorModel(y_sim, copy(mean(model)), ε_sim, F_sim)
 end
 
 """
@@ -186,7 +202,7 @@ function fit!(
         println("====================")
         println("Number of series and observations: $(size(model)[1:end-1])")
         println("Number of factors: $(size(model)[end])")
-        println("Factor dynamics: $(Base.typename(typeof(process(model))).wrapper)")
+        println("Factor specification: $(Base.typename(typeof(process(model))).wrapper)")
         println("Mean specification: $(Base.typename(typeof(mean(model))).wrapper)")
         println("Error specification: $(Base.typename(typeof(errors(model))).wrapper)")
         println("====================")

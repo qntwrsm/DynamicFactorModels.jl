@@ -24,24 +24,16 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
     end
     
     # (M)aximization step
-    # update factor loadings and dynamics
+    # update factor process
     resid(model) .= data(model)
     mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
-    if regularizer.factors isa Nothing
-        update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors)
-    else
-        update_loadings!(loadings(model), resid(model), factors(model), V, regularizer.factors, cov(model))
-    end
-    update!(process(model), V, Γ)
+    update_loadings!(process(model), resid(model), cov(model), V, regularizer.factors)
+    update_dynamics!(process(model), V, Γ)
 
     # update mean specification
     resid(model) .= data(model)
     mul!(resid(model), loadings(model), factors(model), -true, true)
-    if regularizer.mean isa Nothing
-        update!(mean(model), resid(model), regularizer.mean)
-    else
-        update!(mean(model), resid(model), regularizer.mean, cov(model))
-    end
+    update!(mean(model), resid(model), cov(model), regularizer.mean)
 
     # update error specification
     mean(model) isa Exogenous && mul!(resid(model), slopes(mean(model)), regressors(mean(model)), -true, true)
@@ -51,67 +43,94 @@ function update!(model::DynamicFactorModel, regularizer::NamedTuple)
 end
 
 """
-    update_loadings!(Λ, y, f, V, regularizer[, Ω])
+    update_loadings!(F, y, Σ, V, regularizer)
 
-Update factor loadings `Λ` using the data `y`, smoothed factors `f`, smoothed
-covariance matrix `V`, and covariance matrix `Σ` with regularization given by
-`regularizer`.
+Update factor loadings ``Λ`` of the factor process `F` using the data `y`,
+smoothed covariance matrix `V`, and covariance matrix `Σ` with regularization
+given by `regularizer`.
 
-Update is perfomed using OLS when regularizer is `nothing` and using an
-accelerated proximal gradient method when regularizer is `NormL1plusL21`.
+For an unrestricted loading matrix the update is perfomed using OLS when
+regularizer is `nothing` and using an accelerated proximal gradient method when
+regularizer is `NormL1plusL21`. When the loading matrix is restricted to a
+Nelson-Siegel factor process the decay parameter ``λ`` is updated using a
+gradient based minimizer.
 """
 function update_loadings!(
-    Λ::AbstractMatrix, 
+    F::AbstractUnrestrictedFactorProcess,
     y::AbstractMatrix, 
-    f::AbstractMatrix, 
+    Σ::AbstractMatrix,
     V::AbstractVector, 
     regularizer::Nothing
 )
-    Eyf = y * f'
-    Eff = f * f'
+    Eyf = y * factors(F)'
+    Eff = factors(F) * factors(F)'
     for Vt ∈ V
         Eff .+= Vt
     end
-    Λ .= Eyf / Eff
+    loadings(F) .= Eyf / Eff
 
     return nothing
 end
 function update_loadings!(
-    Λ::AbstractMatrix, 
+    F::AbstractUnrestrictedFactorProcess,
     y::AbstractMatrix, 
-    f::AbstractMatrix, 
+    Σ::AbstractMatrix,
     V::AbstractVector, 
     regularizer::NormL1plusL21, 
-    Σ::AbstractMatrix
 )
-    Eyf = y * f'
-    Eff = f * f'
+    Eyf = y * factors(F)'
+    Eff = factors(F) * factors(F)'
     for Vt ∈ V
         Eff .+= Vt
     end
 
     function objective(λ::AbstractVector)
-        λmat = reshape(λ, size(Λ))
-        Ωλmat = Σ \ λmat
+        Λ = reshape(λ, size(loadings(F)))
+        ΩΛ = Σ \ Λ
         
-        return (0.5 * dot(Ωλmat, λmat * Eff) - dot(Ωλmat, Eyf)) / length(V)
+        return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
     end
     ffb = FastForwardBackward(
         stop=(iter, state) -> norm(state.res, Inf) < 1e-4
     )
-    (solution, _) = ffb(x0=vec(Λ), f=objective, g=regularizer)
-    Λ .= reshape(solution, size(Λ))
+    (solution, _) = ffb(x0=vec(loadings(F)), f=objective, g=regularizer)
+    loadings(F) .= reshape(solution, size(loadings(F)))
+
+    return nothing
+end
+function update_loadings!(
+    F::AbstractNelsonSiegelFactorProcess,
+    y::AbstractMatrix, 
+    Σ::AbstractMatrix,
+    V::AbstractVector, 
+    regularizer
+)
+    Eyf = y * factors(F)'
+    Eff = factors(F) * factors(F)'
+    for Vt ∈ V
+        Eff .+= Vt
+    end
+
+    function objective(λ::AbstractVector)
+        F.λ = exp(λ[1])
+        Λ = loadings(F)
+        ΩΛ = Σ \ Λ
+        
+        return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
+    end
+    opt = optimize(objective, [log(decay(F))], LBFGS(), Optim.Options(g_tol=1e-4))
+    F.λ = exp(Optim.minimizer(opt)[1])
 
     return nothing
 end
 
 """
-    update!(F, V, Γ)
+    update_dynamics!(F, V, Γ)
 
-Update factor process `F` using smoothed covariance matrix `V` and smoothed
-auto-covariance matrix `Γ` using OLS.
+Update dynamics of factor process `F` using smoothed covariance matrix `V` and
+smoothed auto-covariance matrix `Γ` using OLS.
 """
-function update!(F::Stationary, V::AbstractVector, Γ::AbstractVector)
+function update_dynamics!(F::UnrestrictedStationary, V::AbstractVector, Γ::AbstractVector)
     @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
     @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
     for t ∈ eachindex(Γ)
@@ -122,7 +141,7 @@ function update!(F::Stationary, V::AbstractVector, Γ::AbstractVector)
 
     return nothing
 end
-function update!(F::UnitRoot, V::AbstractVector, Γ::AbstractVector)
+function update_dynamics!(F::UnrestrictedUnitRoot, V::AbstractVector, Γ::AbstractVector)
     @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
     @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
     @views Eff = factors(F)[:,2:end] * factors(F)[:,2:end]'
@@ -131,30 +150,58 @@ function update!(F::UnitRoot, V::AbstractVector, Γ::AbstractVector)
         Eff1 .+= Γ[t]
         Eff .+= V[t+1]
     end
-    var(F) .= (diag(Eff) .- abs2.(diag(Eff1)) ./ diag(Ef1f1)) ./ length(Γ)
+    cov(F).diag .= (diag(Eff) .- 2.0 .* diag(Eff1) .+ diag(Ef1f1)) ./ length(Γ)
+
+    return nothing
+end
+function update_dynamics!(F::NelsonSiegelStationary, V::AbstractVector, Γ::AbstractVector)
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+    @views Eff = factors(F)[:,2:end] * factors(F)[:,2:end]'
+    for t ∈ eachindex(Γ)
+        Ef1f1 .+= V[t]
+        Eff1 .+= Γ[t]
+        Eff .+= V[t+1]
+    end
+    dynamics(F) .= Eff1 / Ef1f1
+    cov(F).mat .= (Eff - dynamics(F) * Eff1') ./ length(Γ)
+    cov(F).chol.factors .= cholesky(Hermitian(cov(F).mat)).factors
+
+    return nothing
+end
+function update_dynamics!(F::NelsonSiegelUnitRoot, V::AbstractVector, Γ::AbstractVector)
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+    @views Eff = factors(F)[:,2:end] * factors(F)[:,2:end]'
+    for t ∈ eachindex(Γ)
+        Ef1f1 .+= V[t]
+        Eff1 .+= Γ[t]
+        Eff .+= V[t+1]
+    end
+    cov(F).diag .= (diag(Eff) .- 2.0 .* diag(Eff1) .+ diag(Ef1f1)) ./ length(Γ)
 
     return nothing
 end
 
 """
-    update!(μ, y, regularizer[, Σ])
+    update!(μ, y, Σ, regularizer)
 
-Update mean specification `μ` using the data minus the common component `y` with
-regularization given by `regularizer`.
+Update mean specification `μ` using the data minus the common component `y` and
+covariance matrix `Σ` with regularization given by `regularizer`.
 
 Update is perfomed using OLS when regularizer is `nothing` and using an
 accelerated proximal gradient method when regularizer is `NormL1plusL21` for
 exogeneous mean specification.
 """
-update!(μ::ZeroMean, y::AbstractMatrix, regularizer::Nothing) = nothing
-function update!(μ::Exogenous, y::AbstractMatrix, regularizer::Nothing)
+update!(μ::ZeroMean, y::AbstractMatrix, Σ::AbstractMatrix, regularizer::Nothing) = nothing
+function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regularizer::Nothing)
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     slopes(μ) .= yX / XX
 
     return nothing
 end
-function update!(μ::Exogenous, y::AbstractMatrix, regularizer::NormL1plusL21, Σ::AbstractMatrix)
+function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regularizer::NormL1plusL21)
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     

@@ -198,53 +198,185 @@ Abstract type for factor process.
 abstract type AbstractFactorProcess end
 
 """
-    Stationary <: AbstractFactorProcess
+    AbstractUnrestrictedFactorProcess
 
-Stationary factor process with dynamics `ϕ` and factors `f`.
+Abstract type for factor process with unrestricted loadings
 """
-struct Stationary{Dynamics<:Diagonal, Factors<:AbstractMatrix} <: AbstractFactorProcess
+abstract type AbstractUnrestrictedFactorProcess <: AbstractFactorProcess end
+
+"""
+    AbstractNelsonSiegelFactorProcess
+
+Abstract type for factor process with Nelson-Siegel loadings
+"""
+abstract type AbstractNelsonSiegelFactorProcess <: AbstractFactorProcess end
+
+"""
+    UnrestrictedStationary <: AbstractUrestrictedFactorProcess
+
+Stationary factor process with unrestricted loadings `Λ`, dynamics `ϕ`, factors
+`f`, and standard multivariate normal distribution `dist`.
+"""
+struct UnrestrictedStationary{
+    Loadings<:AbstractMatrix, 
+    Dynamics<:Diagonal, 
+    Factors<:AbstractMatrix,
+    Dist<:ZeroMeanIsoNormal
+} <: AbstractUnrestrictedFactorProcess
+    Λ::Loadings
     ϕ::Dynamics
     f::Factors
-    function Stationary(ϕ::Diagonal, f::AbstractMatrix)
+    dist::Dist
+    function UnrestrictedStationary(Λ::AbstractMatrix, ϕ::Diagonal, f::AbstractMatrix, dist::ZeroMeanIsoNormal)
+        size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
+        size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
         size(ϕ, 1) == size(f, 1) || throw(DimensionMismatch("ϕ and f must have the same number of rows."))
+        size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
-        return new{typeof(ϕ), typeof(f)}(ϕ, f)
+        return new{typeof(Λ), typeof(ϕ), typeof(f), typeof(dist)}(Λ, ϕ, f, dist)
     end
 end
 
 """
-    UnitRoot <: AbstractFactorProcess
+    UnrestrictedUnitRoot <: AbstractUnrestrictedFactorProcess
 
-Unit-root factor process with variance `σ` and factors `f`.
+Unit-root factor process with unrestricted loadings `Λ`, factors `f`, and zero
+mean diagonal multivariate normal distribution `dist`.
 """
-struct UnitRoot{Variance<:AbstractVector, Factors<:AbstractMatrix} <: AbstractFactorProcess
-    σ::Variance
+struct UnrestrictedUnitRoot{
+    Loadings<:AbstractMatrix, 
+    Factors<:AbstractMatrix, 
+    Dist<:ZeroMeanDiagNormal
+} <: AbstractUnrestrictedFactorProcess
+    Λ::Loadings
     f::Factors
-    function UnitRoot(σ::AbstractVector, f::AbstractMatrix)
-        all(σi -> σi > 0, σ) || throw(DomainError("σ must be positive."))
-        length(σ) == size(f, 1) || throw(DimensionMismatch("σ and f must have the same number of rows."))
+    dist::Dist
+    function UnrestrictedUnitRoot(Λ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
+        size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
+        size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
+        size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
 
-        return new{typeof(σ), typeof(f)}(σ, f)
+        return new{typeof(Λ), typeof(f), typeof(dist)}(Λ, f, dist)
+    end
+end
+
+"""
+    NelsonSiegelStationary <: AbstractNelsonSiegelFactorProcess
+
+Stationary Nelson-Siegel factor process with decay parameter `λ`, dynamics `ϕ`,
+factors `f`, and zero mean multivariate normal distribution `dist` for
+maturities `τ`.
+"""
+mutable struct NelsonSiegelStationary{
+    Decay<:Real, 
+    Maturities<:AbstractVector,
+    Dynamics<:AbstractMatrix, 
+    Factors<:AbstractMatrix, 
+    Dist<:ZeroMeanFullNormal
+} <: AbstractNelsonSiegelFactorProcess
+    λ::Decay
+    τ::Maturities
+    ϕ::Dynamics
+    f::Factors
+    dist::Dist
+    function NelsonSiegelStationary(λ::Real, τ::AbstractVector, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
+        λ > 0 || throw(DomainError("λ must be positive"))
+        minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
+        length(τ) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
+        size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
+        size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
+        size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
+
+        return new{typeof(λ), typeof(τ), typeof(ϕ), typeof(f), typeof(dist)}(λ, τ, ϕ, f, dist)
+    end
+end
+
+"""
+    NelsonSiegelUnitRoot <: AbstractNelsonSiegelFactorProcess
+
+Unit-root Nelson-Siegel factor process with decay parameter `λ`, factors `f`,
+and zero mean diagonal multivariate normal distribution `dist` for maturities
+`τ`.
+"""
+mutable struct NelsonSiegelUnitRoot{
+    Decay<:Real, 
+    Maturities<:AbstractVector,
+    Factors<:AbstractMatrix, 
+    Dist<:ZeroMeanDiagNormal
+} <: AbstractNelsonSiegelFactorProcess
+    λ::Decay
+    τ::Maturities
+    f::Factors
+    dist::Dist
+    function NelsonSiegelUnitRoot(λ::Real, τ::AbstractVector, f::AbstractMatrix, dist::ZeroMeanDiagNormal)
+        λ > 0 || throw(DomainError("λ must be positive"))
+        minimum(τ) > 0 || throw(DomainError("maturities must be positive"))
+        length(τ) >= 3 || throw(ArgumentError("R must be less than or equal to n."))
+        size(f, 1) == 3 || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
+        size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
+
+        return new{typeof(λ), typeof(τ), typeof(f), typeof(dist)}(λ, τ, f, dist)
     end
 end
 
 # methods
+decay(F::AbstractNelsonSiegelFactorProcess) = F.λ
+maturities(F::AbstractNelsonSiegelFactorProcess) = F.τ
+loadings(F::AbstractUnrestrictedFactorProcess) = F.Λ
+function loadings(F::AbstractNelsonSiegelFactorProcess)
+    n = length(maturities(F))
+    Λ = ones(n, 3)
+    for (i, τ) ∈ pairs(maturities(F))
+        z = exp(-decay(F) * τ)
+        Λ[i,2:end] .= (1 - z) / (decay(F) * τ)
+        Λ[i,end] -= z
+    end
+
+    return Λ
+end
 factors(F::AbstractFactorProcess) = F.f
 size(F::AbstractFactorProcess) = size(factors(F), 1)
-dynamics(F::Stationary) = F.ϕ
-dynamics(F::UnitRoot) = I
-var(F::UnitRoot) = F.σ
-var(F::Stationary) = ones(size(F))
-cov(F::UnitRoot) = Diagonal(var(F))
-cov(F::Stationary) = I
+dynamics(F::AbstractFactorProcess) = F.ϕ
+dynamics(F::UnrestrictedUnitRoot) = I
+dynamics(F::NelsonSiegelUnitRoot) = I
+dist(F::AbstractFactorProcess) = F.dist
+cov(F::AbstractFactorProcess) = Distributions._cov(dist(F))
+function copy(F::UnrestrictedStationary)
+    Λ = copy(loadings(F))
+    ϕ = copy(dynamics(F))
+    f = copy(factors(F))
+    type = eltype(dist(F))
+
+    return UnrestrictedStationary(Λ, ϕ, f, MvNormal(Zeros{type}(size(F)), one(type)I))
+end
+function copy(F::UnrestrictedUnitRoot)
+    Λ = copy(loadings(F))
+    f = copy(factors(F))
+    dist = MvNormal(Diagonal(var(dist(F))))
+
+    return UnrestrictedUnitRoot(Λ, f, dist)
+end
+function copy(F::NelsonSiegelStationary)
+    τ = copy(maturities(F))
+    ϕ = copy(dynamics(F))
+    f = copy(factors(F))
+
+    return NelsonSiegelStationary(decay(F), τ, ϕ, f, MvNormal(cov(dist)))
+end
+function copy(F::NelsonSiegelUnitRoot)
+    τ = copy(maturities(F))
+    f = copy(factors(F))
+
+    return NelsonSiegelUnitRoot(decay(F), τ, f, MvNormal(cov(dist)))
+end
 
 # dynamic factor model
 """
     DynamicFactorModel <: StatisticalModel
 
-Dynamic factor model with mean specification `μ`, error model `ε`,
-factor loadings `Λ`, and factor process `f`.
+Dynamic factor model with mean specification `μ`, error model `ε`, and factor
+process `F`.
 
 The dynamic factor model is defined as
 
@@ -257,38 +389,34 @@ where ``yₜ`` is a ``n × 1`` vector of observations, ``μₜ`` is a ``n × 1``
 of time-varying means, ``Λ`` is a ``n × R`` matrix of factor loadings, ``fₜ`` is
 a ``R × 1`` vector of factors, and ``εₜ`` is a ``n × 1`` vector of errors. 
 
-For identification purposes the factors are assumed to be independent, i.e. the
-factor process has diagonal autoregressive dynamics and the disturbances follow 
-a multivariate normal distribution with diagonal covariance matrix. In the case
-of a stationary process the covariance of the error term is an identity matrix
-(``ηₜ ∼ N(0, I)``). Moreover, the dynamics of the independent factors are
-assumed to be idiosyncratic, i.e. ``ϕᵢ ≠ ϕⱼ`` for ``i ≠ j``.
+When the loading matrix is unrestricted the factors are assumed to be
+independent for identification purpose, i.e. the factor process has diagonal
+autoregressive dynamics and the disturbances follow a multivariate normal
+distribution with diagonal covariance matrix. In the case of a stationary
+process the covariance of the error term is an identity matrix (``ηₜ ∼ N(0,
+I)``). Moreover, the dynamics of the independent factors are assumed to be
+idiosyncratic, i.e. ``ϕᵢ ≠ ϕⱼ`` for ``i ≠ j``.
 """
 struct DynamicFactorModel{
     Data<:AbstractMatrix,
     Mean<:AbstractMeanSpecification,
     Error<:AbstractErrorModel,
-    Loadings<:AbstractMatrix,
     Factors<:AbstractFactorProcess,
 } <: StatisticalModel
     y::Data
     μ::Mean
     ε::Error
-    Λ::Loadings
     F::Factors
     function DynamicFactorModel(
         y::AbstractMatrix, 
         μ::AbstractMeanSpecification,
         ε::AbstractErrorModel,
-        Λ::AbstractMatrix,
         F::AbstractFactorProcess
     )
-        size(y, 1) == size(Λ, 1) || throw(DimensionMismatch("y and Λ must have the same number of rows."))
         size(y) == size(resid(ε)) || throw(DimensionMismatch("y and residuals must have the same dimensions."))
         size(y, 2) == size(factors(F), 2) || throw(DimensionMismatch("y and factors must have the same number of observations."))
-        size(Λ, 2) == size(factors(F), 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
 
-        return new{typeof(y), typeof(μ), typeof(ε), typeof(Λ), typeof(F)}(y, μ, ε, Λ, F)
+        return new{typeof(y), typeof(μ), typeof(ε), typeof(F)}(y, μ, ε, F)
     end
 end
 
@@ -298,8 +426,8 @@ mean(model::DynamicFactorModel) = model.μ
 errors(model::DynamicFactorModel) = model.ε
 resid(model::DynamicFactorModel) = resid(errors(model))
 cov(model::DynamicFactorModel) = cov(errors(model), full=true)
-loadings(model::DynamicFactorModel) = model.Λ
 process(model::DynamicFactorModel) = model.F
+loadings(model::DynamicFactorModel) = loadings(process(model))
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model))
 size(model::DynamicFactorModel) = (size(data(model))..., size(process(model)))
