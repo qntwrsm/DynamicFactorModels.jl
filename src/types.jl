@@ -212,12 +212,12 @@ Abstract type for factor process with Nelson-Siegel loadings
 abstract type AbstractNelsonSiegelFactorProcess <: AbstractFactorProcess end
 
 """
-    UnrestrictedStationary <: AbstractUrestrictedFactorProcess
+    UnrestrictedStationaryIdentified <: AbstractUrestrictedFactorProcess
 
-Stationary factor process with unrestricted loadings `Λ`, dynamics `ϕ`, factors
-`f`, and standard multivariate normal distribution `dist`.
+Identified stationary factor process with unrestricted loadings `Λ`, dynamics
+`ϕ`, factors `f`, and standard multivariate normal distribution `dist`.
 """
-struct UnrestrictedStationary{
+struct UnrestrictedStationaryIdentified{
     Loadings<:AbstractMatrix, 
     Dynamics<:Diagonal, 
     Factors<:AbstractMatrix,
@@ -227,7 +227,34 @@ struct UnrestrictedStationary{
     ϕ::Dynamics
     f::Factors
     dist::Dist
-    function UnrestrictedStationary(Λ::AbstractMatrix, ϕ::Diagonal, f::AbstractMatrix, dist::ZeroMeanIsoNormal)
+    function UnrestrictedStationaryIdentified(Λ::AbstractMatrix, ϕ::Diagonal, f::AbstractMatrix, dist::ZeroMeanIsoNormal)
+        size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
+        size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
+        size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
+        size(ϕ, 1) == size(f, 1) || throw(DimensionMismatch("ϕ and f must have the same number of rows."))
+        size(cov(dist), 1) == size(f, 1) || throw(DimensionMismatch("covariance of dist and f must have the same number of rows."))
+
+        return new{typeof(Λ), typeof(ϕ), typeof(f), typeof(dist)}(Λ, ϕ, f, dist)
+    end
+end
+
+"""
+    UnrestrictedStationaryFull <: AbstractUrestrictedFactorProcess
+
+Dependent stationary factor process with unrestricted loadings `Λ`, dynamics
+`ϕ`, factors `f`, and standard multivariate normal distribution `dist`.
+"""
+struct UnrestrictedStationaryFull{
+    Loadings<:AbstractMatrix, 
+    Dynamics<:AbstractMatrix, 
+    Factors<:AbstractMatrix,
+    Dist<:ZeroMeanFullNormal
+} <: AbstractUnrestrictedFactorProcess
+    Λ::Loadings
+    ϕ::Dynamics
+    f::Factors
+    dist::Dist
+    function UnrestrictedStationaryFull(Λ::AbstractMatrix, ϕ::AbstractMatrix, f::AbstractMatrix, dist::ZeroMeanFullNormal)
         size(Λ, 1) >= size(Λ, 2) || throw(ArgumentError("R must be less than or equal to n."))
         size(Λ, 2) == size(f, 1) || throw(DimensionMismatch("multiplication of loadings and factors must be defined."))
         size(ϕ, 1) == size(ϕ, 2) || throw(DimensionMismatch("ϕ must be square."))
@@ -342,13 +369,20 @@ dynamics(F::UnrestrictedUnitRoot) = I
 dynamics(F::NelsonSiegelUnitRoot) = I
 dist(F::AbstractFactorProcess) = F.dist
 cov(F::AbstractFactorProcess) = Distributions._cov(dist(F))
-function copy(F::UnrestrictedStationary)
+function copy(F::UnrestrictedStationaryIdentified)
     Λ = copy(loadings(F))
     ϕ = copy(dynamics(F))
     f = copy(factors(F))
     type = eltype(dist(F))
 
-    return UnrestrictedStationary(Λ, ϕ, f, MvNormal(Zeros{type}(size(F)), one(type)I))
+    return UnrestrictedStationaryIdentified(Λ, ϕ, f, MvNormal(Zeros{type}(size(F)), one(type)I))
+end
+function copy(F::UnrestrictedStationaryFull)
+    Λ = copy(loadings(F))
+    ϕ = copy(dynamics(F))
+    f = copy(factors(F))
+
+    return UnrestrictedStationaryFull(Λ, ϕ, f, MvNormal(cov(dist)))
 end
 function copy(F::UnrestrictedUnitRoot)
     Λ = copy(loadings(F))

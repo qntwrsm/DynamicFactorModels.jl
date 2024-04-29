@@ -130,7 +130,7 @@ end
 Update dynamics of factor process `F` using smoothed covariance matrix `V` and
 smoothed auto-covariance matrix `Γ` using OLS.
 """
-function update_dynamics!(F::UnrestrictedStationary, V::AbstractVector, Γ::AbstractVector)
+function update_dynamics!(F::UnrestrictedStationaryIdentified, V::AbstractVector, Γ::AbstractVector)
     @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
     @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
     for t ∈ eachindex(Γ)
@@ -138,6 +138,21 @@ function update_dynamics!(F::UnrestrictedStationary, V::AbstractVector, Γ::Abst
         Eff1 .+= Γ[t]
     end
     dynamics(F).diag .= diag(Eff1) ./ diag(Ef1f1)
+
+    return nothing
+end
+function update_dynamics!(F::UnrestrictedStationaryFull, V::AbstractVector, Γ::AbstractVector)
+    @views Ef1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+    @views Eff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+    @views Eff = factors(F)[:,2:end] * factors(F)[:,2:end]'
+    for t ∈ eachindex(Γ)
+        Ef1f1 .+= V[t]
+        Eff1 .+= Γ[t]
+        Eff .+= V[t+1]
+    end
+    dynamics(F) .= Eff1 / Ef1f1
+    cov(F).mat .= (Eff - dynamics(F) * Eff1') ./ length(Γ)
+    cov(F).chol.factors .= cholesky(Hermitian(cov(F).mat)).factors
 
     return nothing
 end

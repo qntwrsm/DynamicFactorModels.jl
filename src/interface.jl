@@ -85,19 +85,29 @@ function SpatialMovingAverage(n::Integer, T::Integer, W::AbstractMatrix; spatial
 end
 
 """
-    UnrestrictedStationary(dims; type=Float64) -> F
+    UnrestrictedStationary(dims; dependence=:identified, type=Float64) -> F
 
 Construct a stationary factor process with unrestricted loadings of dimensions
-`dims` and with element types `type`.
+`dims`, dependence of factors `dependence`, and with element types `type`.
 """
-function UnrestrictedStationary(dims::Dims; type::Type=Float64)
+function UnrestrictedStationary(dims::Dims; dependence::Symbol=:identified, type::Type=Float64)
     (n, T, R) = dims
     Λ = Matrix{type}(undef, n, R)
-    ϕ = Diagonal{type}(undef, R)
     f = Matrix{type}(undef, R, T)
-    dist = MvNormal(Zeros{type}(R), one(type)I)
+
+    if dependence == :identified
+        ϕ = Diagonal{type}(undef, R)
+        dist = MvNormal(Zeros{type}(R), one(type)I)
+        F = UnrestrictedStationaryIdentified
+    elseif dependence == :fullname
+        ϕ = Matrix{type}(undef, R, R)
+        dist = MvNormal(Matrix(one(type)I(R)))
+        F = UnrestrictedStationaryFull
+    else
+        throw(ArgumentError("dependence of factors $dependence not supported."))
+    end
     
-    return UnrestrictedStationary(Λ, ϕ, f, dist)
+    return F(Λ, ϕ, f, dist)
 end
 
 """
