@@ -99,7 +99,7 @@ function UnrestrictedStationary(dims::Dims; dependence::Symbol=:identified, type
         ϕ = Diagonal{type}(undef, R)
         dist = MvNormal(Zeros{type}(R), one(type)I)
         F = UnrestrictedStationaryIdentified
-    elseif dependence == :fullname
+    elseif dependence == :full
         ϕ = Matrix{type}(undef, R, R)
         dist = MvNormal(Matrix(one(type)I(R)))
         F = UnrestrictedStationaryFull
