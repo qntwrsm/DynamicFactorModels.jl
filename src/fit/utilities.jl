@@ -47,7 +47,7 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
 end
 
 # factor process
-function init!(F::UnrestrictedStationary, method::Symbol, y::AbstractMatrix)
+function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
@@ -59,6 +59,26 @@ function init!(F::UnrestrictedStationary, method::Symbol, y::AbstractMatrix)
             ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
             dynamics(F).diag[r] = max(-0.99, min(0.99, ϕi))
         end
+    end
+
+    return nothing
+end
+function init!(F::UnrestrictedStationaryFull, method::Symbol, y::AbstractMatrix)
+    if method == :data
+        # factors and loadings via PCA
+        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        loadings(F) .= projection(M)
+        factors(F) .= transform(M, y)
+        
+        # factor dynamics
+        @views f1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
+        @views ff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
+        dynamics(F) .= ff1 / f1f1
+
+        # factor variance
+        @views η = factors(F)[:,2:end] - dynamics(F) * factors(F)[:,1:end-1]
+        cov(F).mat .= cov(η, dims=2)
+        cov(F).chol.factors .= cholesky(cov(F).mat).factors
     end
 
     return nothing
@@ -164,6 +184,7 @@ function params(model::DynamicFactorModel)
     # number of parameters
     n_params = n
     process(model) isa AbstractUnrestrictedFactorProcess && (n_params += (n + 1) * R)
+    process(model) isa UnrestrictedStationaryFull && (n_params += R * (2R - 1))
     process(model) isa AbstractNelsonSiegelFactorProcess && (n_params += 1 + 2R^2)
     process(model) isa NelsonSiegelUnitRoot && (n_params -= 2R^2 - R)
     errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
@@ -190,10 +211,19 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     end
 
     # factor dynamics and variance
-    if process(model) isa UnrestrictedStationary
+    if process(model) isa UnrestrictedStationaryIdentified
         # dynamics
         offset = length(dynamics(model).diag)
         θ[idx:idx+offset-1] = dynamics(model).diag
+        idx += offset
+    elseif process(model) isa UnrestrictedStationaryFull
+        # dynamics
+        offset = length(dynamics(model))
+        θ[idx:idx+offset-1] = vec(dynamics(model))
+        idx += offset
+        # variance
+        offset = length(cov(process(model)))
+        θ[idx:idx+offset-1] = vec(cov(process(model)))
         idx += offset
     elseif process(model) isa UnrestrictedUnitRoot
         # variance
@@ -250,10 +280,20 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
     end
 
     # factor dynamics and variance
-    if process(model) isa UnrestrictedStationary
+    if process(model) isa UnrestrictedStationaryIdentified
         # dynamics
         offset = length(dynamics(model).diag)
         dynamics(model).diag .= view(θ, idx:idx+offset-1)
+        idx += offset
+    elseif process(model) isa UnrestrictedStationaryFull
+        # dynamics
+        offset = length(dynamics(model))
+        vec(dynamics(model)) .= view(θ, idx:idx+offset-1)
+        idx += offset
+        # variance
+        offset = length(cov(process(model)))
+        vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
+        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
         idx += offset
     elseif process(model) isa UnrestrictedUnitRoot
         # variance
@@ -330,6 +370,7 @@ function dof(model::DynamicFactorModel)
 
     # factor component
     process(model) isa AbstractUnrestrictedFactorProcess && (k = sum(!iszero, loadings(model)) + R)
+    process(model) isa UnrestrictedStationaryFull && (k += (R * (3R - 1)) ÷ 2)
     process(model) isa AbstractNelsonSiegelFactorProcess && (k = 1 + (R * (3R + 1)) ÷ 2)
     process(model) isa NelsonSiegelUnitRoot && (k -= (R * (3R - 1)) ÷ 2)
 
