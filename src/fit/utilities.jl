@@ -370,7 +370,7 @@ function dof(model::DynamicFactorModel)
 
     # factor component
     process(model) isa AbstractUnrestrictedFactorProcess && (k = sum(!iszero, loadings(model)) + R)
-    process(model) isa UnrestrictedStationaryFull && (k = (R * (3R - 1)) ÷ 2)
+    process(model) isa UnrestrictedStationaryFull && (k += (R * (3R - 1)) ÷ 2)
     process(model) isa AbstractNelsonSiegelFactorProcess && (k = 1 + (R * (3R + 1)) ÷ 2)
     process(model) isa NelsonSiegelUnitRoot && (k -= (R * (3R - 1)) ÷ 2)
 
