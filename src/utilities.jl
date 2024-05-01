@@ -45,7 +45,7 @@ instantiate(ε::SpatialMovingAverage, dims::NamedTuple) = SpatialMovingAverage(d
 Instantiate a dynamic factor process `F` with dimensions `dims`.
 """
 instantiate(F::UnrestrictedStationaryIdentified, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:identified, type=eltype(factors(F)))
-instantiate(F::UnrestrictedStationaryIdentified, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:full, type=eltype(factors(F)))
+instantiate(F::UnrestrictedStationaryFull, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:full, type=eltype(factors(F)))
 instantiate(F::UnrestrictedUnitRoot, dims::NamedTuple) = UnrestrictedUnitRoot((dims.n, dims.T, dims.R), type=eltype(factors(F)))
 instantiate(F::NelsonSiegelStationary, dims::NamedTuple) = NelsonSiegelStationary(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F)))
 instantiate(F::NelsonSiegelUnitRoot, dims::NamedTuple) = NelsonSiegelUnitRoot(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F))) 
