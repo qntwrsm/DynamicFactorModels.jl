@@ -27,7 +27,7 @@ end
 
 Select a sample `sample` of the data from the mean model `μ`.
 """
-select_sample(μ::ZeroMean, sample::AbstractUnitRange) = ZeroMean(μ.type, dims.n)
+select_sample(μ::ZeroMean, sample::AbstractUnitRange) = ZeroMean(μ.type, μ.n)
 select_sample(μ::Exogenous, sample::AbstractUnitRange) = Exogenous(regressors(μ)[:,sample], size(slopes(μ), 1))
 
 """
