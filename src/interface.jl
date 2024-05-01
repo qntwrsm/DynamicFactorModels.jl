@@ -23,7 +23,7 @@ function DynamicFactorModel(
     F::AbstractFactorProcess;
     type::Type=Float64
 )
-    return DynamicFactorModel(Matrix{type}(undef, dims), μ, ε, Λ, F)
+    return DynamicFactorModel(Matrix{type}(undef, dims), μ, ε, F)
 end
 
 """
@@ -263,7 +263,7 @@ function fit!(
 end
 
 """
-    model_tuning!(model, regularizers; ic=:bic, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
+    model_tuning_ic!(model, regularizers; ic=:bic, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
 
 Search for the optimal regularizer in `regularizers` for the dynamic factor
 model `model` using information criterion `ic`. If `parallel` is true, the
@@ -271,7 +271,7 @@ search is performed in parallel. If `verbose` is true, a summary of model tuning
 and progress of the search is printed. Additional keyword arguments `kwargs` are
 passed to the `fit!` function.
 """
-function model_tuning!(
+function model_tuning_ic!(
     model::DynamicFactorModel,
     regularizers::AbstractArray;
     ic::Symbol=:bic,
@@ -315,6 +315,10 @@ function model_tuning!(
     index_opt = argmin(skipmissing(ic_values))
     ic_opt = ic_values[index_opt]
     params!(model, θ[index_opt])
+    (α̂, _, _) = smoother(model)
+    for (t, α̂t) ∈ pairs(α̂)
+        factors(model)[:,t] = α̂t
+    end
 
     if verbose
         println("====================")
@@ -328,44 +332,23 @@ function model_tuning!(
 end
 
 """
-    forecast(model, periods[, X]) -> forecasts
+    forecast(model, periods) -> forecasts
 
-Forecast `periods` ahead using the dynamic factor model `model`. Future values
-of exogeneous regressors `X` should be provided if the mean specification of
-`model` is `Exogenous`.
+Forecast `periods` ahead using the dynamic factor model `model`.
 """
 function forecast(model::DynamicFactorModel, periods::Integer)
-    mean(model) isa Exogenous && throw(ArgumentError("Exogenous regressors X must be provided if mean specification is Exogenous."))
-
     # forecast
     (a, _, v, _, K) = filter(model)
     a_next = similar(a[end])
     forecasts = similar(data(model), size(model)[1], periods)
+    μ_hat = forecast(mean(model), periods)
     for h = 1:periods
         if h == 1 
             a_next .= dynamics(model) * a[end] + K[end] * v[end]
         else 
             a_next .= dynamics(model) * a_next
         end
-        forecasts[:,h] = mean(mean(model)) .+ loadings(model) * a_next
-    end
-
-    return forecasts
-end
-function forecast(model::DynamicFactorModel, periods::Integer, X::AbstractMatrix)
-    !isa(mean(model), Exogenous) && return forecast(model, periods)
-
-    # forecast
-    (a, _, v, _, K) = filter(model)
-    a_next = similar(a[end])
-    forecasts = similar(data(model), size(model)[1], periods)
-    for h = 1:periods
-        if h == 1 
-            a_next .= dynamics(model) * a[end] + K[end] * v[end]
-        else 
-            a_next .= dynamics(model) * a_next
-        end
-        forecasts[:,h] = slopes(mean(model)) * X[:,h] + loadings(model) * a_next  
+        forecasts[:,h] = μ_hat[:,h] .+ loadings(model) * a_next
     end
 
     return forecasts

@@ -185,3 +185,11 @@ function smoother(model::DynamicFactorModel)
 
     return (α̂, V, Γ)
 end
+
+"""
+    forecasts(μ, periods) -> forecasts
+
+Forecast the mean model `μ` `periods` ahead.
+"""
+forecast(μ::AbstractMeanSpecification, periods::Integer) = error("forecast for $(Base.typename(typeof(μ)).wrapper) not implemented.")
+forecast(μ::ZeroMean, periods::Integer) = Zeros(μ.type, μ.n, periods)
