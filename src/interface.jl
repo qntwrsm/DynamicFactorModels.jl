@@ -361,10 +361,10 @@ function model_tuning_cv!(
     end
 
     # train-test split
-    (n, T, R) = size(model)
+    (n, T, _) = size(model)
     T_train = T - blocks * periods
-    train_model = instantiate(model, (n=n, T=T_train, R=R))
-    test_models = [instantiate(model, (n=n, T=t, R=R)) for t = T_train:T-periods]
+    train_model = select_sample(model, 1:T_train)
+    test_models = [select_sample(model, 1:t) for t = T_train:T-periods]
 
     # model tuning
     map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map

@@ -10,45 +10,45 @@ utilities.jl
 =#
 
 """
-    instantiate(model, dims) -> model
+    select_sample(model, sample) -> model
 
-Instantiate a dynamic factor model `model` with dimensions `dims`.
+Select a sample `sample` of the data from the dynamic factor model `model`.
 """
-function instantiate(model::DynamicFactorModel, dims::NamedTuple)
-    μ = instantiate(mean(model), dims)
-    ε = instantiate(errors(model), dims)
-    F = instantiate(process(model), dims)
+function select_sample(model::DynamicFactorModel, sample::AbstractUnitRange)
+    μ = select_sample(mean(model), sample)
+    ε = select_sample(errors(model), sample)
+    F = select_sample(process(model), sample)
 
-    return DynamicFactorModel((dims.n, dims.T), μ, ε, F, type=eltype(data(model)))
+    return DynamicFactorModel(data(model)[:,sample], μ, ε, F)
 end
 
 """
-    instantiate(μ, dims) -> μ
+    select_sample(μ, sample) -> μ
 
-Instantiate a mean specification `μ` with dimensions `dims`.
+Select a sample `sample` of the data from the mean model `μ`.
 """
-instantiate(μ::ZeroMean, dims::NamedTuple) = ZeroMean(μ.type, dims.n)
-instantiate(μ::Exogenous, dims::NamedTuple) = Exogenous(copy(regressors(μ)), dims.n)
-
-"""
-    instantiate(ε, dims) -> ε
-
-Instantiate an error model `ε` with dimensions `dims`.
-"""
-instantiate(ε::Simple, dims::NamedTuple) = Simple(dims.n, dims.T, type=eltype(resid(ε)))
-instantiate(ε::SpatialAutoregression, dims::NamedTuple) = SpatialAutoregression(dims.n, dims.T, copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
-instantiate(ε::SpatialMovingAverage, dims::NamedTuple) = SpatialMovingAverage(dims.n, dims.T, copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+select_sample(μ::ZeroMean, sample::AbstractUnitRange) = ZeroMean(μ.type, dims.n)
+select_sample(μ::Exogenous, sample::AbstractUnitRange) = Exogenous(regressors(μ)[:,sample], size(slopes(μ), 1))
 
 """
-    instantiate(F, dims) -> F
+    select_sample(ε, sample) -> ε
 
-Instantiate a dynamic factor process `F` with dimensions `dims`.
+Select a sample `sample` of the data from the error model `ε`.
 """
-instantiate(F::UnrestrictedStationaryIdentified, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:identified, type=eltype(factors(F)))
-instantiate(F::UnrestrictedStationaryFull, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:full, type=eltype(factors(F)))
-instantiate(F::UnrestrictedUnitRoot, dims::NamedTuple) = UnrestrictedUnitRoot((dims.n, dims.T, dims.R), type=eltype(factors(F)))
-instantiate(F::NelsonSiegelStationary, dims::NamedTuple) = NelsonSiegelStationary(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F)))
-instantiate(F::NelsonSiegelUnitRoot, dims::NamedTuple) = NelsonSiegelUnitRoot(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F))) 
+select_sample(ε::Simple, sample::AbstractUnitRange) = Simple(size(resid(ε), 1), length(sample), type=eltype(resid(ε)))
+select_sample(ε::SpatialAutoregression, sample::AbstractUnitRange) = SpatialAutoregression(size(resid(ε), 1), length(sample), copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+select_sample(ε::SpatialMovingAverage, sample::AbstractUnitRange) = SpatialMovingAverage(size(resid(ε), 1), length(sample), copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+
+"""
+    select_sample(F, sample) -> F
+
+Select a sample `sample` of the data from the dynamic factor process `F`.
+"""
+select_sample(F::UnrestrictedStationaryIdentified, sample::AbstractUnitRange) = UnrestrictedStationary((size(factors(F), 1), length(sample), size(F)), dependence=:identified, type=eltype(factors(F)))
+select_sample(F::UnrestrictedStationaryFull, sample::AbstractUnitRange) = UnrestrictedStationary((size(factors(F), 1), length(sample), size(F)), dependence=:full, type=eltype(factors(F)))
+select_sample(F::UnrestrictedUnitRoot, sample::AbstractUnitRange) = UnrestrictedUnitRoot((size(factors(F), 1), length(sample), size(F)), type=eltype(factors(F)))
+select_sample(F::NelsonSiegelStationary, sample::AbstractUnitRange) = NelsonSiegelStationary(length(sample), maturities(F), type=eltype(factors(F)))
+select_sample(F::NelsonSiegelUnitRoot, sample::AbstractUnitRange) = NelsonSiegelUnitRoot(length(sample), maturities(F), type=eltype(factors(F))) 
 
 """
     simulate(F; burn=100, rng=Xoshiro()) -> sim
