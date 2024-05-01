@@ -19,7 +19,7 @@ function instantiate(model::DynamicFactorModel, dims::NamedTuple)
     ε = instantiate(errors(model), dims)
     F = instantiate(process(model), dims)
 
-    return DynamicFactorModel((dims.n, dims.T, dims.R), μ, ε, F, type=eltype(data(model)))
+    return DynamicFactorModel((dims.n, dims.T), μ, ε, F, type=eltype(data(model)))
 end
 
 """
