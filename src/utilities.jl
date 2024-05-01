@@ -10,6 +10,34 @@ utilities.jl
 =#
 
 """
+    instantiate(μ, dims) -> μ
+
+Instantiate a mean specification `μ` with dimensions `dims`.
+"""
+instantiate(μ::ZeroMean, dims::NamedTuple) = ZeroMean(μ.type, dims.n)
+instantiate(μ::Exogenous, dims::NamedTuple) = Exogenous(similar(regressors(μ), dims.K, dims.T), dims.n)
+
+"""
+    instantiate(ε, dims) -> ε
+
+Instantiate an error model `ε` with dimensions `dims`.
+"""
+instantiate(ε::Simple, dims::NamedTuple) = Simple(dims.n, dims.T, type=eltype(resid(ε)))
+instantiate(ε::SpatialAutoregression, dims::NamedTuple) = SpatialAutoregression(dims.n, dims.T, copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+instantiate(ε::SpatialMovingAverage, dims::NamedTuple) = SpatialMovingAverage(dims.n, dims.T, copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+
+"""
+    instantiate(F, dims) -> F
+
+Instantiate a dynamic factor process `F` with dimensions `dims`.
+"""
+instantiate(F::UnrestrictedStationaryIdentified, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:identified, type=eltype(factors(F)))
+instantiate(F::UnrestrictedStationaryIdentified, dims::NamedTuple) = UnrestrictedStationary((dims.n, dims.T, dims.R), dependence=:full, type=eltype(factors(F)))
+instantiate(F::UnrestrictedUnitRoot, dims::NamedTuple) = UnrestrictedUnitRoot((dims.n, dims.T, dims.R), type=eltype(factors(F)))
+instantiate(F::NelsonSiegelStationary, dims::NamedTuple) = NelsonSiegelStationary(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F)))
+instantiate(F::NelsonSiegelUnitRoot, dims::NamedTuple) = NelsonSiegelUnitRoot(dims.T, maturities(F)[1:dims.n], type=eltype(factors(F))) 
+
+"""
     simulate(F; burn=100, rng=Xoshiro()) -> sim
 
 Simulate the dynamic factors from the dynamic factor process `F`
@@ -50,7 +78,7 @@ function simulate(ε::SpatialAutoregression; rng::AbstractRNG=Xoshiro())
         et .= poly(ε) \ rand(rng, dist(ε))
     end
 
-    return SpatialAutoregression(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
+    return SpatialAutoregression(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, copy(weights(ε)))
 end
 function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
     e_sim = similar(resid(ε))
@@ -58,7 +86,7 @@ function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
         mul!(et, poly(ε), rand(rng, dist(ε)))
     end
 
-    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
+    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, copy(weights(ε)))
 end
 
 """
