@@ -369,7 +369,7 @@ function model_tuning_cv!(
     # model tuning
     map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
     θ0 = params(model)
-    f0 = copy(factors(model))
+    f0 = factors(model)[:,1:T_train]
     θ = map_func(regularizers) do regularizer
         try
             params!(train_model, θ0)
