@@ -44,9 +44,9 @@ select_sample(ε::SpatialMovingAverage, sample::AbstractUnitRange) = SpatialMovi
 
 Select a sample `sample` of the data from the dynamic factor process `F`.
 """
-select_sample(F::UnrestrictedStationaryIdentified, sample::AbstractUnitRange) = UnrestrictedStationary((size(factors(F), 1), length(sample), size(F)), dependence=:identified, type=eltype(factors(F)))
-select_sample(F::UnrestrictedStationaryFull, sample::AbstractUnitRange) = UnrestrictedStationary((size(factors(F), 1), length(sample), size(F)), dependence=:full, type=eltype(factors(F)))
-select_sample(F::UnrestrictedUnitRoot, sample::AbstractUnitRange) = UnrestrictedUnitRoot((size(factors(F), 1), length(sample), size(F)), type=eltype(factors(F)))
+select_sample(F::UnrestrictedStationaryIdentified, sample::AbstractUnitRange) = UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)), dependence=:identified, type=eltype(factors(F)))
+select_sample(F::UnrestrictedStationaryFull, sample::AbstractUnitRange) = UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)), dependence=:full, type=eltype(factors(F)))
+select_sample(F::UnrestrictedUnitRoot, sample::AbstractUnitRange) = UnrestrictedUnitRoot((size(loadings(F), 1), length(sample), size(F)), type=eltype(factors(F)))
 select_sample(F::NelsonSiegelStationary, sample::AbstractUnitRange) = NelsonSiegelStationary(length(sample), maturities(F), type=eltype(factors(F)))
 select_sample(F::NelsonSiegelUnitRoot, sample::AbstractUnitRange) = NelsonSiegelUnitRoot(length(sample), maturities(F), type=eltype(factors(F))) 
 
