@@ -332,6 +332,88 @@ function model_tuning_ic!(
 end
 
 """
+    model_tuning_cv!(model, regularizers, blocks, periods; parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
+
+Search for the optimal regularizer in `regularizers` for the dynamic factor
+model `model` using cross-validation with out-of-sample consisting of `blocks`
+blocks with `periods` period ahead forecasts. If `parallel` is true, the search
+is performed in parallel. If `verbose` is true, a summary of model tuning and
+progress of the search is printed. Additional keyword arguments `kwargs` are
+passed to the `fit!` function.
+"""
+function model_tuning_cv!(
+    model::DynamicFactorModel,
+    regularizers::AbstractArray,
+    blocks::Integer,
+    periods::Integer;
+    parallel::Bool=false,
+    verbose::Bool=false,
+    kwargs...
+)
+    if verbose
+        println("Model tuning summary")
+        println("====================")
+        println("Number of regularizers: $(length(regularizers))")
+        println("Number of out-of-sample blocks: $blocks")
+        println("Forecast periods per block: $periods")
+        println("Parallel: $(parallel ? "yes" : "no")")
+        println("====================")
+    end
+
+    # train-test split
+    (n, T, R) = size(model)
+    K = size(regressors(mean(model)), 1)
+    T_train = T - blocks * periods
+    train_model = instantiate(model, (n=n, T=T_train, R=R, K=K))
+    test_models = [instantiate(model, (n=n, T=t, R=R, K=K)) for t = T_train:T-periods]
+
+    # model tuning
+    map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
+    θ0 = params(model)
+    f0 = copy(factors(model))
+    θ = map_func(regularizers) do regularizer
+        try
+            params!(train_model, θ0)
+            factors(train_model) .= f0
+            fit!(train_model, regularizer=regularizer; kwargs...)
+            params(train_model)
+        catch
+            missing
+        end
+    end
+    msfe = map(θ) do θi
+        if all(ismissing.(θi))
+            missing
+        else
+            e_sq = zero(eltype(data(model)))
+            for (t, test_model) ∈ pairs(test_models)
+                params!(test_model, θi)
+                oos_range = (T_train + t):(T_train + t + periods - 1)
+                e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+            end
+            e_sq / (n * length(test_models) * periods)
+        end
+    end
+    index_opt = argmin(skipmissing(msfe))
+    msfe_opt = msfe[index_opt]
+    params!(model, θ[index_opt])
+    (α̂, _, _) = smoother(model)
+    for (t, α̂t) ∈ pairs(α̂)
+        factors(model)[:,t] = α̂t
+    end
+
+    if verbose
+        println("====================")
+        println("Optimal regularizer index: $(index_opt)")
+        println("Optimal forecast accuracy: $(msfe_opt)")
+        println("Failed fits: $(sum(ismissing.(msfe)))")
+        println("====================")
+    end
+    
+    return (model, index_opt)
+end
+
+"""
     forecast(model, periods) -> forecasts
 
 Forecast `periods` ahead using the dynamic factor model `model`.
@@ -348,7 +430,7 @@ function forecast(model::DynamicFactorModel, periods::Integer)
         else 
             a_next .= dynamics(model) * a_next
         end
-        forecasts[:,h] = μ_hat[:,h] .+ loadings(model) * a_next
+        forecasts[:,h] = μ_hat[:,h] + loadings(model) * a_next
     end
 
     return forecasts
