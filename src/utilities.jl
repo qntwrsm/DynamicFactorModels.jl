@@ -28,7 +28,7 @@ end
 Instantiate a mean specification `μ` with dimensions `dims`.
 """
 instantiate(μ::ZeroMean, dims::NamedTuple) = ZeroMean(μ.type, dims.n)
-instantiate(μ::Exogenous, dims::NamedTuple) = Exogenous(similar(regressors(μ), dims.K, dims.T), dims.n)
+instantiate(μ::Exogenous, dims::NamedTuple) = Exogenous(copy(regressors(μ)), dims.n)
 
 """
     instantiate(ε, dims) -> ε
