@@ -10,6 +10,19 @@ utilities.jl
 =#
 
 """
+    instantiate(model, dims) -> model
+
+Instantiate a dynamic factor model `model` with dimensions `dims`.
+"""
+function instantiate(model::DynamicFactorModel, dims::NamedTuple)
+    μ = instantiate(mean(model), dims)
+    ε = instantiate(errors(model), dims)
+    F = instantiate(factors(model), dims)
+
+    return DynamicFactorModel((dims.n, dims.T, dims.R), μ, ε, F, type=eltype(data(model)))
+end
+
+"""
     instantiate(μ, dims) -> μ
 
 Instantiate a mean specification `μ` with dimensions `dims`.
