@@ -63,7 +63,7 @@ export
 
     # fit
     fit!,
-    model_tuning!,
+    model_tuning_ic!, model_tuning_cv!,
     loglikelihood,
     dof, nobs, aic, aicc, bic,
 

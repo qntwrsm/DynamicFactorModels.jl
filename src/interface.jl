@@ -23,7 +23,7 @@ function DynamicFactorModel(
     F::AbstractFactorProcess;
     type::Type=Float64
 )
-    return DynamicFactorModel(Matrix{type}(undef, dims), μ, ε, Λ, F)
+    return DynamicFactorModel(Matrix{type}(undef, dims), μ, ε, F)
 end
 
 """
@@ -263,7 +263,7 @@ function fit!(
 end
 
 """
-    model_tuning!(model, regularizers; ic=:bic, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
+    model_tuning_ic!(model, regularizers; ic=:bic, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
 
 Search for the optimal regularizer in `regularizers` for the dynamic factor
 model `model` using information criterion `ic`. If `parallel` is true, the
@@ -271,7 +271,7 @@ search is performed in parallel. If `verbose` is true, a summary of model tuning
 and progress of the search is printed. Additional keyword arguments `kwargs` are
 passed to the `fit!` function.
 """
-function model_tuning!(
+function model_tuning_ic!(
     model::DynamicFactorModel,
     regularizers::AbstractArray;
     ic::Symbol=:bic,
@@ -315,6 +315,10 @@ function model_tuning!(
     index_opt = argmin(skipmissing(ic_values))
     ic_opt = ic_values[index_opt]
     params!(model, θ[index_opt])
+    (α̂, _, _) = smoother(model)
+    for (t, α̂t) ∈ pairs(α̂)
+        factors(model)[:,t] = α̂t
+    end
 
     if verbose
         println("====================")
@@ -328,44 +332,100 @@ function model_tuning!(
 end
 
 """
-    forecast(model, periods[, X]) -> forecasts
+    model_tuning_cv!(model, regularizers, blocks, periods; parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
 
-Forecast `periods` ahead using the dynamic factor model `model`. Future values
-of exogeneous regressors `X` should be provided if the mean specification of
-`model` is `Exogenous`.
+Search for the optimal regularizer in `regularizers` for the dynamic factor
+model `model` using cross-validation with out-of-sample consisting of `blocks`
+blocks with `periods` period ahead forecasts. If `parallel` is true, the search
+is performed in parallel. If `verbose` is true, a summary of model tuning and
+progress of the search is printed. Additional keyword arguments `kwargs` are
+passed to the `fit!` function.
 """
-function forecast(model::DynamicFactorModel, periods::Integer)
-    mean(model) isa Exogenous && throw(ArgumentError("Exogenous regressors X must be provided if mean specification is Exogenous."))
-
-    # forecast
-    (a, _, v, _, K) = filter(model)
-    a_next = similar(a[end])
-    forecasts = similar(data(model), size(model)[1], periods)
-    for h = 1:periods
-        if h == 1 
-            a_next .= dynamics(model) * a[end] + K[end] * v[end]
-        else 
-            a_next .= dynamics(model) * a_next
-        end
-        forecasts[:,h] = mean(mean(model)) .+ loadings(model) * a_next
+function model_tuning_cv!(
+    model::DynamicFactorModel,
+    regularizers::AbstractArray,
+    blocks::Integer,
+    periods::Integer;
+    parallel::Bool=false,
+    verbose::Bool=false,
+    kwargs...
+)
+    if verbose
+        println("Model tuning summary")
+        println("====================")
+        println("Number of regularizers: $(length(regularizers))")
+        println("Number of out-of-sample blocks: $blocks")
+        println("Forecast periods per block: $periods")
+        println("Parallel: $(parallel ? "yes" : "no")")
+        println("====================")
     end
 
-    return forecasts
-end
-function forecast(model::DynamicFactorModel, periods::Integer, X::AbstractMatrix)
-    !isa(mean(model), Exogenous) && return forecast(model, periods)
+    # train-test split
+    (n, T, _) = size(model)
+    T_train = T - blocks * periods
+    train_model = select_sample(model, 1:T_train)
+    test_models = [select_sample(model, 1:t) for t = T_train:T-periods]
 
+    # model tuning
+    map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
+    θ0 = params(model)
+    f0 = factors(model)[:,1:T_train]
+    θ = map_func(regularizers) do regularizer
+        try
+            params!(train_model, θ0)
+            factors(train_model) .= f0
+            fit!(train_model, regularizer=regularizer; kwargs...)
+            params(train_model)
+        catch
+            missing
+        end
+    end
+    msfe = map(θ) do θi
+        if all(ismissing.(θi))
+            missing
+        else
+            e_sq = zero(eltype(data(model)))
+            for (t, test_model) ∈ pairs(test_models)
+                params!(test_model, θi)
+                oos_range = (T_train + t):(T_train + t + periods - 1)
+                e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+            end
+            e_sq / (n * length(test_models) * periods)
+        end
+    end
+    index_opt = argmin(skipmissing(msfe))
+    msfe_opt = msfe[index_opt]
+    fit!(model, regularizer=regularizers[index_opt]; kwargs...)
+
+    if verbose
+        println("====================")
+        println("Optimal regularizer index: $(index_opt)")
+        println("Optimal forecast accuracy: $(msfe_opt)")
+        println("Failed fits: $(sum(ismissing.(msfe)))")
+        println("====================")
+    end
+    
+    return (model, index_opt)
+end
+
+"""
+    forecast(model, periods) -> forecasts
+
+Forecast `periods` ahead using the dynamic factor model `model`.
+"""
+function forecast(model::DynamicFactorModel, periods::Integer)
     # forecast
     (a, _, v, _, K) = filter(model)
     a_next = similar(a[end])
     forecasts = similar(data(model), size(model)[1], periods)
+    μ_hat = forecast(mean(model), periods)
     for h = 1:periods
         if h == 1 
             a_next .= dynamics(model) * a[end] + K[end] * v[end]
         else 
             a_next .= dynamics(model) * a_next
         end
-        forecasts[:,h] = slopes(mean(model)) * X[:,h] + loadings(model) * a_next  
+        forecasts[:,h] = μ_hat[:,h] + loadings(model) * a_next
     end
 
     return forecasts

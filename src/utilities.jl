@@ -10,6 +10,47 @@ utilities.jl
 =#
 
 """
+    select_sample(model, sample) -> model
+
+Select a sample `sample` of the data from the dynamic factor model `model`.
+"""
+function select_sample(model::DynamicFactorModel, sample::AbstractUnitRange)
+    μ = select_sample(mean(model), sample)
+    ε = select_sample(errors(model), sample)
+    F = select_sample(process(model), sample)
+
+    return DynamicFactorModel(data(model)[:,sample], μ, ε, F)
+end
+
+"""
+    select_sample(μ, sample) -> μ
+
+Select a sample `sample` of the data from the mean model `μ`.
+"""
+select_sample(μ::ZeroMean, sample::AbstractUnitRange) = ZeroMean(μ.type, μ.n)
+select_sample(μ::Exogenous, sample::AbstractUnitRange) = Exogenous(regressors(μ)[:,sample], size(slopes(μ), 1))
+
+"""
+    select_sample(ε, sample) -> ε
+
+Select a sample `sample` of the data from the error model `ε`.
+"""
+select_sample(ε::Simple, sample::AbstractUnitRange) = Simple(size(resid(ε), 1), length(sample), type=eltype(resid(ε)))
+select_sample(ε::SpatialAutoregression, sample::AbstractUnitRange) = SpatialAutoregression(size(resid(ε), 1), length(sample), copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+select_sample(ε::SpatialMovingAverage, sample::AbstractUnitRange) = SpatialMovingAverage(size(resid(ε), 1), length(sample), copy(weights(ε)), spatial=length(spatial(ε)) == 1 ? :homo : :hetero, type=eltype(resid(ε)))
+
+"""
+    select_sample(F, sample) -> F
+
+Select a sample `sample` of the data from the dynamic factor process `F`.
+"""
+select_sample(F::UnrestrictedStationaryIdentified, sample::AbstractUnitRange) = UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)), dependence=:identified, type=eltype(factors(F)))
+select_sample(F::UnrestrictedStationaryFull, sample::AbstractUnitRange) = UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)), dependence=:full, type=eltype(factors(F)))
+select_sample(F::UnrestrictedUnitRoot, sample::AbstractUnitRange) = UnrestrictedUnitRoot((size(loadings(F), 1), length(sample), size(F)), type=eltype(factors(F)))
+select_sample(F::NelsonSiegelStationary, sample::AbstractUnitRange) = NelsonSiegelStationary(length(sample), maturities(F), type=eltype(factors(F)))
+select_sample(F::NelsonSiegelUnitRoot, sample::AbstractUnitRange) = NelsonSiegelUnitRoot(length(sample), maturities(F), type=eltype(factors(F))) 
+
+"""
     simulate(F; burn=100, rng=Xoshiro()) -> sim
 
 Simulate the dynamic factors from the dynamic factor process `F`
@@ -50,7 +91,7 @@ function simulate(ε::SpatialAutoregression; rng::AbstractRNG=Xoshiro())
         et .= poly(ε) \ rand(rng, dist(ε))
     end
 
-    return SpatialAutoregression(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
+    return SpatialAutoregression(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, copy(weights(ε)))
 end
 function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
     e_sim = similar(resid(ε))
@@ -58,7 +99,7 @@ function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
         mul!(et, poly(ε), rand(rng, dist(ε)))
     end
 
-    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, weights(ε))
+    return SpatialMovingAverage(e_sim, MvNormal(Diagonal(var(ε))), copy(spatial(ε)), ε.ρ_max, copy(weights(ε)))
 end
 
 """
@@ -185,3 +226,11 @@ function smoother(model::DynamicFactorModel)
 
     return (α̂, V, Γ)
 end
+
+"""
+    forecasts(μ, periods) -> forecasts
+
+Forecast the mean model `μ` `periods` ahead.
+"""
+forecast(μ::AbstractMeanSpecification, periods::Integer) = error("forecast for $(Base.typename(typeof(μ)).wrapper) not implemented.")
+forecast(μ::ZeroMean, periods::Integer) = Zeros(μ.type, μ.n, periods)
