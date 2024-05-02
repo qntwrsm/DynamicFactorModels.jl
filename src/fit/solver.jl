@@ -76,7 +76,7 @@ function update_loadings!(
     y::AbstractMatrix, 
     Σ::AbstractMatrix,
     V::AbstractVector, 
-    regularizer::NormL1plusL21, 
+    regularizer
 )
     Eyf = y * factors(F)'
     Eff = factors(F) * factors(F)'
@@ -205,7 +205,7 @@ Update mean specification `μ` using the data minus the common component `y` and
 covariance matrix `Σ` with regularization given by `regularizer`.
 
 Update is perfomed using OLS when regularizer is `nothing` and using an
-accelerated proximal gradient method when regularizer is `NormL1plusL21` for
+accelerated proximal gradient method when regularizer is not `nothing` for
 exogeneous mean specification.
 """
 update!(μ::ZeroMean, y::AbstractMatrix, Σ::AbstractMatrix, regularizer::Nothing) = nothing
@@ -216,7 +216,7 @@ function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regulariz
 
     return nothing
 end
-function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regularizer::NormL1plusL21)
+function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regularizer)
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     
@@ -285,7 +285,7 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
     return nothing
 end
-function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVector, regularizer::TotalVariation1D)
+function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVector, regularizer)
     Vsum = zero(V[1])
     for Vt ∈ V
         Vsum .+= Vt
@@ -350,7 +350,7 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
 
     return nothing
 end
-function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer::TotalVariation1D)
+function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector, regularizer)
     Vsum = zero(V[1])
     for Vt ∈ V
         Vsum .+= Vt
