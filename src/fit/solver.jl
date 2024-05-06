@@ -84,8 +84,7 @@ function update_loadings!(
         Eff .+= Vt
     end
 
-    function objective(λ::AbstractVector)
-        Λ = reshape(λ, size(loadings(F)))
+    function objective(Λ::AbstractMatrix)
         ΩΛ = Σ \ Λ
         
         return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
@@ -93,8 +92,8 @@ function update_loadings!(
     ffb = FastForwardBackward(
         stop=(iter, state) -> norm(state.res, Inf) < 1e-4
     )
-    (solution, _) = ffb(x0=vec(loadings(F)), f=objective, g=regularizer)
-    loadings(F) .= reshape(solution, size(loadings(F)))
+    (solution, _) = ffb(x0=loadings(F), f=objective, g=regularizer)
+    loadings(F) .= solution
 
     return nothing
 end
