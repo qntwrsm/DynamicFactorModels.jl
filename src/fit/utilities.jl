@@ -343,23 +343,22 @@ function loglikelihood(model::DynamicFactorModel)
     (_, _, v, F, _) = filter(model)
 
     # annihilator matrix
-    if errors(model) isa SpatialAutoregression
-        Hinv = poly(errors(model))' * (cov(errors(model)) \ poly(errors(model)))
-        Zt_Hinv = loadings(model)' * Hinv
-    else
-        Zt_Hinv = (cov(model)' \ loadings(model))'
-    end
-    Zt_Hinv_Z = Zt_Hinv * loadings(model)
-    P = loadings(model) * (Zt_Hinv_Z \ Zt_Hinv)
-    M = I - P
+    (A_low, Z_basis) = collapse(model)
+    M = I - Z_basis * ((A_low * Z_basis) \ A_low)
 
-    ll = -0.5 * T * (n * log2π + logdet(cov(model)))
+    # covariance and precision matrices
+    H = cov(model)
+    Hinv = inv(H)
+    H_low = A_low * H * A_low'
+
+    # log-likelihood
+    ll = -0.5 * T * (n * log2π + logdet(H) - logdet(H_low))
     y_demeaned = data(model) .- mean(mean(model))
     e = similar(y_demeaned, n)
     for (t, yt) ∈ pairs(eachcol(y_demeaned))
         ll -= 0.5 * (logdet(F[t]) + dot(v[t], inv(F[t]), v[t]))
         mul!(e, M, yt)
-        ll -= 0.5 * dot(e, inv(cov(model)), e)
+        ll -= 0.5 * dot(e, Hinv, e)
     end
 
     return ll

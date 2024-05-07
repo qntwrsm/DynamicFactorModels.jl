@@ -103,43 +103,56 @@ function simulate(ε::SpatialMovingAverage; rng::AbstractRNG=Xoshiro())
 end
 
 """
-    state_space(model) -> (y_star, Z_star, d_star, a1, P1)
+    collapse(model) -> (A_low, Z_basis)
 
-State space form of the collapsed dynamic factor model `model`.
+Low-dimensional collapsing matrices for the dynamic factor model `model`
+following the approach of Jungbacker and Koopman (2015).
+"""
+function collapse(model::DynamicFactorModel)
+    # active factors
+    active = [!all(iszero, λ) for λ ∈ eachcol(loadings(model))]
+
+    # collapsing matrix
+    H = cov(model)
+    if all(active)
+        C = (H \ loadings(model))' * loadings(model)
+        Z_basis = (C \ loadings(model)')'
+    else
+        Z_basis = loadings(model)[:,active]
+    end
+    A_low = (H \ Z_basis)'
+
+    return (A_low, Z_basis)
+end
+
+"""
+    state_space(model) -> (y_low, Z_low, d_low, H_low, a1, P1)
+
+State space form of the collapsed dynamic factor model `model` following the
+approach of Jungbacker and Koopman (2015).
 """
 function state_space(model::DynamicFactorModel)
     R = size(process(model))
     Ty = eltype(data(model))
 
-    # projection components
-    if errors(model) isa SpatialAutoregression
-        Hinv = poly(errors(model))' * (cov(errors(model)) \ poly(errors(model)))
-        Zt_Hinv = loadings(model)' * Hinv
-    else
-        Zt_Hinv = (cov(model)' \ loadings(model))'
-    end
-    Zt_Hinv_Z = Zt_Hinv * loadings(model)
-    
-    # Cholesky decomposition
-    C = cholesky(Hermitian(inv(Zt_Hinv_Z)))
-
-    # collapsing projection matrix
-    A_star = C.U * Zt_Hinv
+    # collapsing matrix
+    (A_low, _) = collapse(model)
 
     # collapsing
-    y_star = [A_star * yt for yt ∈ eachcol(data(model))]
-    Z_star = inv(C.L)
+    y_low = [A_low * yt for yt ∈ eachcol(data(model))]
+    Z_low = A_low * loadings(model)
     if mean(model) isa ZeroMean
-        d_star = [Zeros(Ty, R) for _ ∈ axes(data(model), 2)]
+        d_low = [A_low * mean(mean(model)) for _ ∈ axes(data(model), 2)]
     elseif mean(model) isa Exogenous
-        d_star = [A_star * μt for μt ∈ eachcol(mean(mean(model)))]
+        d_low = [A_low * μt for μt ∈ eachcol(mean(mean(model)))]
     end
+    H_low = A_low * cov(model) * A_low'
 
     # initial conditions
     a1 = zeros(Ty, R)
     P1 = Matrix{Ty}(I, R, R)
 
-    return (y_star, Z_star, d_star, a1, P1)
+    return (y_low, Z_low, d_low, H_low, a1, P1)
 end
 
 """
@@ -151,7 +164,7 @@ filtered state `a`, covariance `P`, forecast error `v`, forecast error variance
 """
 function filter(model::DynamicFactorModel)
     # collapsed state space system
-    (y, Z, d, a1, P1) = state_space(model)
+    (y, Z, d, H, a1, P1) = state_space(model)
     T = dynamics(model)
     Q = cov(process(model))
 
@@ -170,7 +183,7 @@ function filter(model::DynamicFactorModel)
     for t ∈ eachindex(y)
         # forecast error
         v[t] = y[t] - Z * a[t] - d[t]
-        F[t] = Z * P[t] * Z' + I
+        F[t] = Z * P[t] * Z' + H
 
         # Kalman gain
         K[t] = T * P[t] * Z' / F[t]
@@ -193,7 +206,7 @@ smoothed state `α̂`, covariance `V`, and autocovariance `Γ`.
 """
 function smoother(model::DynamicFactorModel)
     # collapsed state space system
-    (y, Z, _, a1, P1) = state_space(model)
+    (y, Z, _, _, a1, P1) = state_space(model)
     T = dynamics(model)
 
     # filter
