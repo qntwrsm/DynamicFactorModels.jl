@@ -219,17 +219,16 @@ function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regulariz
     yX = y * regressors(μ)'
     XX = regressors(μ) * regressors(μ)'
     
-    function objective(β::AbstractVector)
-        βmat = reshape(β, size(slopes(μ)))
-        Ωβmat = Σ \ βmat
+    function objective(β::AbstractMatrix)
+        Ωβ = Σ \ β
         
-        return (0.5 * dot(Ωβmat, βmat * XX) - dot(Ωβmat, yX)) / size(regressors(μ), 2)
+        return (0.5 * dot(Ωβ, β * XX) - dot(Ωβ, yX)) / size(regressors(μ), 2)
     end
     ffb = FastForwardBackward(
         stop=(iter, state) -> norm(state.res, Inf) < 1e-4
     )
-    (solution, _) = ffb(x0=vec(slopes(μ)), f=objective, g=regularizer)
-    slopes(μ) .= reshape(solution, size(slopes(μ)))
+    (solution, _) = ffb(x0=slopes(μ), f=objective, g=regularizer)
+    slopes(μ) .= solution
 
     return nothing
 end
