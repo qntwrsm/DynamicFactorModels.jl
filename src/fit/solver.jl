@@ -115,7 +115,7 @@ function update_loadings!(
         
         return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
     end
-    opt = optimize(objective, [log(decay(F))], LBFGS(), Optim.Options(g_tol=1e-4))
+    opt = optimize(objective, [log(decay(F))], BFGS(), Optim.Options(g_tol=1e-4))
     F.λ = exp(Optim.minimizer(opt)[1])
 
     return nothing
@@ -268,7 +268,7 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
     opt = optimize(
         objective, 
         logit.((spatial(ε) .+ offset) ./ scale), 
-        LBFGS(),
+        ConjugateGradient(),
         Optim.Options(g_tol=1e-4)
     )
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
@@ -331,7 +331,7 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
     opt = optimize(
         objective, 
         logit.((spatial(ε) .+ offset) ./ scale), 
-        LBFGS(),
+        ConjugateGradient(),
         Optim.Options(g_tol=1e-4)
     )
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
