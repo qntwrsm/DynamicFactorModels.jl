@@ -135,8 +135,15 @@ function state_space(model::DynamicFactorModel)
     R = size(process(model))
     Ty = eltype(data(model))
 
+    # active factors
+    active = [!all(iszero, λ) for λ ∈ eachcol(loadings(model))]
+
     # collapsing matrix
-    (A_low, _) = collapse(model)
+    if any(active)
+        (A_low, _) = collapse(model)
+    else
+        A_low = I
+    end
 
     # collapsing
     y_low = [A_low * yt for yt ∈ eachcol(data(model))]

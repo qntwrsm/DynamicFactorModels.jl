@@ -342,9 +342,17 @@ function loglikelihood(model::DynamicFactorModel)
     (n, T) = size(model)[1:end-1]
     (_, _, v, F, _) = filter(model)
 
+    # active factors
+    active = [!all(iszero, λ) for λ ∈ eachcol(loadings(model))]
+
     # annihilator matrix
-    (A_low, Z_basis) = collapse(model)
-    M = I - Z_basis * ((A_low * Z_basis) \ A_low)
+    if any(active)
+        (A_low, Z_basis) = collapse(model)
+        M = I - Z_basis * ((A_low * Z_basis) \ A_low)
+    else
+        A_low = I
+        M = Zeros(eltype(data(model)), n, n)
+    end
 
     # covariance and precision matrices
     H = cov(model)
