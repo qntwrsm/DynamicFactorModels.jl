@@ -10,7 +10,7 @@ solver.jl
 =#
 
 """
-    update!(model)
+    update!(model, regularizer)
 
 Update parameters of dynamic factor model `model` using an
 expectation-maximization (EM) solve w/ regularization term given by
@@ -89,9 +89,7 @@ function update_loadings!(
         
         return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
     end
-    ffb = FastForwardBackward(
-        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
-    )
+    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
     (solution, _) = ffb(x0=loadings(F), f=objective, g=regularizer)
     loadings(F) .= solution
 
@@ -224,9 +222,7 @@ function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regulariz
         
         return (0.5 * dot(Ωβ, β * XX) - dot(Ωβ, yX)) / size(regressors(μ), 2)
     end
-    ffb = FastForwardBackward(
-        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
-    )
+    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
     (solution, _) = ffb(x0=slopes(μ), f=objective, g=regularizer)
     slopes(μ) .= solution
 
@@ -305,9 +301,7 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
     end
-    ffb = FastForwardBackward(
-        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
-    )
+    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
@@ -370,9 +364,7 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
     end
-    ffb = FastForwardBackward(
-        stop=(iter, state) -> norm(state.res, Inf) < 1e-4
-    )
+    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=objective, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 

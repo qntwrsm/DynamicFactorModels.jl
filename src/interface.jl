@@ -200,7 +200,7 @@ function fit!(
     regularizer::NamedTuple=(factors=nothing, mean=nothing, error=nothing),
     init_method::NamedTuple=(factors=:data, mean=:data, error=:data), 
     ϵ::AbstractFloat=1e-4, 
-    max_iter::Integer=1000, 
+    max_iter::Integer=1_000, 
     verbose::Bool=false
 )
     keys(regularizer) ⊇ (:factors, :mean, :error) || error("regularizer must be a NamedTuple with keys :factors, :mean, and :error.")
