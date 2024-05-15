@@ -146,12 +146,12 @@ function state_space(model::DynamicFactorModel)
     end
 
     # collapsing
-    y_low = [A_low * yt for yt ∈ eachcol(data(model))]
+    y_low = A_low * data(model)
     Z_low = A_low * loadings(model)
     if mean(model) isa ZeroMean
-        d_low = [A_low * mean(mean(model)) for _ ∈ axes(data(model), 2)]
+        d_low = Zeros(mean(model).type, size(y_low))
     elseif mean(model) isa Exogenous
-        d_low = [A_low * μt for μt ∈ eachcol(mean(mean(model)))]
+        d_low = A_low * mean(mean(model))
     end
     H_low = A_low * cov(model) * A_low'
 
@@ -160,6 +160,44 @@ function state_space(model::DynamicFactorModel)
     P1 = Matrix{Ty}(I, R, R)
 
     return (y_low, Z_low, d_low, H_low, a1, P1)
+end
+
+"""
+    _filter(y, Z, d, H, T, Q, a1, P1) -> (a, P, v, F, K)
+
+Kalman filter for the state space system `y`, `Z`, `d`, `H`, `T`, `Q`, `a1`,
+and `P1`.
+"""
+function _filter(y, Z, d, H, T, Q, a1, P1)
+    # initialize filter output
+    n = size(y, 2)
+    a = Vector{typeof(a1)}(undef, n)
+    P = Vector{typeof(P1)}(undef, n)
+    v = Vector{typeof(a1)}(undef, n)
+    F = Vector{typeof(P1)}(undef, n)
+    K = Vector{typeof(P1)}(undef, n)
+
+    # initialize filter
+    a[1] = a1
+    P[1] = P1
+
+    # filter
+    for (t, yt) ∈ pairs(eachcol(y))
+        # forecast error
+        v[t] = yt - Z * a[t] - view(d, :, t)
+        F[t] = Z * P[t] * Z' + H
+
+        # Kalman gain
+        K[t] = T * P[t] * (F[t] \ Z)'
+
+        # prediction
+        if t < n
+            a[t+1] = T * a[t] + K[t] * v[t]
+            P[t+1] = T * P[t] * (T - K[t] * Z)' + Q
+        end
+    end
+
+    return (a, P, v, F, K)
 end
 
 """
@@ -175,34 +213,7 @@ function filter(model::DynamicFactorModel)
     T = dynamics(model)
     Q = cov(process(model))
 
-    # initialize filter output
-    a = similar(y, typeof(a1))
-    P = similar(y, typeof(P1))
-    v = similar(y)
-    F = similar(y, typeof(P1))
-    K = similar(y, typeof(P1))
-
-    # initialize filter
-    a[1] = a1
-    P[1] = P1
-
-    # filter
-    for t ∈ eachindex(y)
-        # forecast error
-        v[t] = y[t] - Z * a[t] - d[t]
-        F[t] = Z * P[t] * Z' + H
-
-        # Kalman gain
-        K[t] = T * P[t] * Z' / F[t]
-
-        # prediction
-        if t < length(y)
-            a[t+1] = T * a[t] + K[t] * v[t]
-            P[t+1] = T * P[t] * (T - K[t] * Z)' + Q
-        end
-    end
-
-    return (a, P, v, F, K)
+    return _filter(y, Z, d, H, T, Q, a1, P1)
 end
 
 """
@@ -213,16 +224,17 @@ smoothed state `α̂`, covariance `V`, and autocovariance `Γ`.
 """
 function smoother(model::DynamicFactorModel)
     # collapsed state space system
-    (y, Z, _, _, a1, P1) = state_space(model)
+    (y, Z, d, H, a1, P1) = state_space(model)
     T = dynamics(model)
+    Q = cov(process(model))
 
     # filter
-    (a, P, v, F, K) = filter(model)
+    (a, P, v, F, K) = _filter(y, Z, d, H, T, Q, a1, P1)
 
     # initialize smoother output
     α̂ = similar(a)
     V = similar(P)
-    Γ = similar(P, length(y) - 1)
+    Γ = similar(P, length(a) - 1)
 
     # initialize smoother
     r = zero(a1)
@@ -230,18 +242,18 @@ function smoother(model::DynamicFactorModel)
     L = similar(P1)
 
     # smoother
-    for t ∈ reverse(eachindex(y))
+    for t ∈ reverse(eachindex(a))
         L .= T - K[t] * Z
 
         # backward recursion
-        r .= Z' / F[t] * v[t] + L' * r
-        N .= Z' / F[t] * Z + L' * N * L
+        r .= (F[t] \ Z)' * v[t] + L' * r
+        N .= (F[t] \ Z)' * Z + L' * N * L
 
         # smoothing
         α̂[t] = a[t] + P[t] * r
         V[t] = P[t] - P[t] * N * P[t]
         t > 1 && (Γ[t-1] = I - P[t] * N)
-        t < length(y) && (Γ[t] *= L * P[t])
+        t < length(a) && (Γ[t] *= L * P[t])
     end
 
     return (α̂, V, Γ)

@@ -10,6 +10,42 @@ utilities.jl
 =#
 
 """
+    ObjectiveWrapper
+
+Wrapper for objective functions for gradient dispatching to finit differences.
+"""
+struct ObjectiveWrapper{F}
+    f::F
+end
+
+(f::ObjectiveWrapper)(x) = f.f(x)
+
+function ProximalCore.gradient!(y, f::ObjectiveWrapper, x)
+    FiniteDiff.finite_difference_gradient!(y, f, x)
+
+    return f(x)
+end
+
+"""
+    ObjectiveGradientWrapper
+
+Wrapper for objective and gradient functions to dispatch to custom gradient
+function.
+"""
+struct ObjectiveGradientWrapper{F, G}
+    f::F
+    g!::G
+end
+
+(f::ObjectiveGradientWrapper)(x) = f.f(x)
+
+function ProximalCore.gradient!(y, f::ObjectiveGradientWrapper, x)
+    f.g!(y, x)
+
+    return f(x)
+end
+
+"""
     init!(model, method)
 
 Initialize the dynamic factor model `model` by `method`.

@@ -29,6 +29,8 @@ using Distances: evaluate, Chebyshev
 
 using LogExpFunctions: logistic, logit
 using Optim
+using FiniteDiff
+using ProximalCore
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
 using ProximalAlgorithms: FastForwardBackward
 
