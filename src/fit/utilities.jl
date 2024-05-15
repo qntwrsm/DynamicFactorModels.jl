@@ -14,14 +14,15 @@ utilities.jl
 
 Wrapper for objective functions for gradient dispatching to finit differences.
 """
-struct ObjectiveWrapper{F}
+struct ObjectiveWrapper{F, C}
     f::F
+    cache::C
 end
 
 (f::ObjectiveWrapper)(x) = f.f(x)
 
 function ProximalCore.gradient!(y, f::ObjectiveWrapper, x)
-    FiniteDiff.finite_difference_gradient!(y, f, x)
+    FiniteDiff.finite_difference_gradient!(y, f, x, f.cache)
 
     return f(x)
 end

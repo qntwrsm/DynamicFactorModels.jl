@@ -310,8 +310,10 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(resid(ε), 2)
     end
+    cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
+    f = ObjectiveWrapper(objective, cache)
     ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
-    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=ObjectiveWrapper(objective), g=regularizer)
+    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=f, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
     # update covariance matrix
@@ -368,8 +370,10 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(resid(ε), 2)
     end
+    cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
+    f = ObjectiveWrapper(objective, cache)
     ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
-    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=Objective(objective), g=regularizer)
+    (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=f, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
     # update covariance matrix
