@@ -96,7 +96,7 @@ function update_loadings!(
         return nothing
     end
     f = ObjectiveGradientWrapper(objective, gradient!)
-    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
+    ffb = FastForwardBackward(maxit=100, tol=1e-2)
     (solution, _) = ffb(x0=loadings(F), f=f, g=regularizer)
     loadings(F) .= solution
 
@@ -236,7 +236,7 @@ function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regulariz
         return nothing
     end
     f = ObjectiveGradientWrapper(objective, gradient!)
-    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
+    ffb = FastForwardBackward(maxit=100, tol=1e-2)
     (solution, _) = ffb(x0=slopes(μ), f=f, g=regularizer)
     slopes(μ) .= solution
 
@@ -312,7 +312,7 @@ function update!(ε::SpatialAutoregression, Λ::AbstractMatrix, V::AbstractVecto
     end
     cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
     f = ObjectiveWrapper(objective, cache)
-    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
+    ffb = FastForwardBackward(maxit=100, tol=1e-2)
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=f, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
@@ -372,7 +372,7 @@ function update!(ε::SpatialMovingAverage, Λ::AbstractMatrix, V::AbstractVector
     end
     cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
     f = ObjectiveWrapper(objective, cache)
-    ffb = FastForwardBackward(maxit=1_000, tol=1e-4)
+    ffb = FastForwardBackward(maxit=100, tol=1e-2)
     (solution, _) = ffb(x0=logit.((spatial(ε) .+ offset) ./ scale), f=f, g=regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
 
