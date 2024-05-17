@@ -384,13 +384,17 @@ function model_tuning_cv!(
         if all(ismissing.(θi))
             missing
         else
-            e_sq = zero(eltype(data(model)))
-            for (t, test_model) ∈ pairs(test_models)
-                params!(test_model, θi)
-                oos_range = (T_train + t):(T_train + t + periods - 1)
-                e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+            try
+                e_sq = zero(eltype(data(model)))
+                for (t, test_model) ∈ pairs(test_models)
+                    params!(test_model, θi)
+                    oos_range = (T_train + t):(T_train + t + periods - 1)
+                    e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+                end
+                e_sq / (n * length(test_models) * periods)
+            catch
+                missing
             end
-            e_sq / (n * length(test_models) * periods)
         end
     end
     index_opt = argmin(skipmissing(msfe))
