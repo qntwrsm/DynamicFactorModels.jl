@@ -399,7 +399,15 @@ function model_tuning_cv!(
     end
     index_opt = argmin(skipmissing(msfe))
     msfe_opt = msfe[index_opt]
-    fit!(model, regularizer=regularizers[index_opt]; kwargs...)
+    try
+        fit!(model, regularizer=regularizers[index_opt]; kwargs...)
+    catch
+        params!(model, θ[index_opt])
+        (α̂, _, _) = smoother(model)
+        for (t, α̂t) ∈ pairs(α̂)
+            factors(model)[:,t] = α̂t
+        end
+    end
 
     if verbose
         println("====================")
