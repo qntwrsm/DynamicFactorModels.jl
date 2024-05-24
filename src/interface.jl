@@ -312,7 +312,7 @@ function model_tuning_ic!(
             eval(ic)(model)
         end
     end
-    index_opt = argmin(skipmissing(ic_values))
+    index_opt = argmin(x -> isnan(x) ? Inf : x, skipmissing(ic_values))
     ic_opt = ic_values[index_opt]
     params!(model, θ[index_opt])
     (α̂, _, _) = smoother(model)
@@ -384,30 +384,18 @@ function model_tuning_cv!(
         if all(ismissing.(θi))
             missing
         else
-            try
-                e_sq = zero(eltype(data(model)))
-                for (t, test_model) ∈ pairs(test_models)
-                    params!(test_model, θi)
-                    oos_range = (T_train + t):(T_train + t + periods - 1)
-                    e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
-                end
-                e_sq / (n * length(test_models) * periods)
-            catch
-                missing
+            e_sq = zero(eltype(data(model)))
+            for (t, test_model) ∈ pairs(test_models)
+                params!(test_model, θi)
+                oos_range = (T_train + t):(T_train + t + periods - 1)
+                e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
             end
+            e_sq / (n * length(test_models) * periods)
         end
     end
-    index_opt = argmin(skipmissing(msfe))
+    index_opt = argmin(x -> isnan(x) ? Inf : x, skipmissing(msfe))
     msfe_opt = msfe[index_opt]
-    try
-        fit!(model, regularizer=regularizers[index_opt]; kwargs...)
-    catch
-        params!(model, θ[index_opt])
-        (α̂, _, _) = smoother(model)
-        for (t, α̂t) ∈ pairs(α̂)
-            factors(model)[:,t] = α̂t
-        end
-    end
+    fit!(model, regularizer=regularizers[index_opt]; kwargs...)
 
     if verbose
         println("====================")
