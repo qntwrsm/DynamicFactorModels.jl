@@ -312,8 +312,7 @@ function model_tuning_ic!(
             eval(ic)(model)
         end
     end
-    index_opt = argmin(x -> isnan(x) ? Inf : x, skipmissing(ic_values))
-    ic_opt = ic_values[index_opt]
+    (ic_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(ic_values))
     params!(model, θ[index_opt])
     (α̂, _, _) = smoother(model)
     for (t, α̂t) ∈ pairs(α̂)
@@ -393,8 +392,7 @@ function model_tuning_cv!(
             e_sq / (n * length(test_models) * periods)
         end
     end
-    index_opt = argmin(x -> isnan(x) ? Inf : x, skipmissing(msfe))
-    msfe_opt = msfe[index_opt]
+    (msfe_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(msfe))
     fit!(model, regularizer=regularizers[index_opt]; kwargs...)
 
     if verbose
