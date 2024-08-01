@@ -233,7 +233,7 @@ function fit!(
 
         # update objective function
         obj_prev = obj
-        obj = objective(model, regularizers)
+        obj = objective(model, regularizer)
 
         # non-decrease violation
         if obj - obj_prev < 0
