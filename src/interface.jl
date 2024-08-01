@@ -222,25 +222,32 @@ function fit!(
     # initialization of model parameters
     init!(model, init_method)
 
-    # instantiate parameter vectors
-    θ_prev = params(model)
-    θ = similar(θ_prev)
-
     # optimization
     iter = 0
+    obj = -Inf
     converged = false
-    dist = Chebyshev()
+    violation = false
     while !converged && iter < max_iter
         # update model
         update!(model, regularizer)
 
-        # compute distance metric
-        params!(θ, model)
-        δ = evaluate(dist, θ, θ_prev)
-        copyto!(θ_prev, θ)
+        # update objective function
+        obj_prev = obj
+        obj = objective(model, regularizers)
+
+        # non-decrease violation
+        if obj - obj_prev < 0
+            violation = true
+            if verbose
+                println("Objective function value decreased from $iter to $(iter + 1).")
+                println()
+            end
+            break
+        end
 
         # convergence
-        converged = δ < ϵ || δ < ϵ * maximum(abs, θ)
+        δ = 2 * abs(obj - obj_prev) / (abs(obj) + abs(obj_prev))
+        converged = δ < ϵ
 
         # update iteration counter
         iter += 1
@@ -251,6 +258,7 @@ function fit!(
         println("Optimization summary")
         println("====================")
         println("Convergence: ", converged ? "success" : "failed")
+        println("Non-decrease violation: $violation")
         println("Iterations: $iter")
         println("Log-likelihood value: $(loglikelihood(model))")
         println("aic: $(aic(model))")

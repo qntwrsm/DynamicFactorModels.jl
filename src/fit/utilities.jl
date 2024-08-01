@@ -409,6 +409,15 @@ function loglikelihood(model::DynamicFactorModel)
     return ll
 end
 
+function objective(model::DynamicFactorModel, regularizer::NamedTuple)
+    f = loglikelihood(model)
+    isnothing(regularizer.factors) || (f += regularizer.factors(loadings(model)))
+    isnothing(regularizer.mean) || (f += regularizer.mean(slopes(mean(model))))
+    isnothing(regularizer.error) || (f += regularizer.error(cov(errors(model))))
+
+    return f
+end
+
 function dof(model::DynamicFactorModel)
     R = size(process(model))
 

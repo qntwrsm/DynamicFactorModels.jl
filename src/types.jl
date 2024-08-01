@@ -382,7 +382,7 @@ function copy(F::UnrestrictedStationaryFull)
     ϕ = copy(dynamics(F))
     f = copy(factors(F))
 
-    return UnrestrictedStationaryFull(Λ, ϕ, f, MvNormal(cov(dist)))
+    return UnrestrictedStationaryFull(Λ, ϕ, f, MvNormal(cov(dist(F))))
 end
 function copy(F::UnrestrictedUnitRoot)
     Λ = copy(loadings(F))
@@ -396,13 +396,13 @@ function copy(F::NelsonSiegelStationary)
     ϕ = copy(dynamics(F))
     f = copy(factors(F))
 
-    return NelsonSiegelStationary(decay(F), τ, ϕ, f, MvNormal(cov(dist)))
+    return NelsonSiegelStationary(decay(F), τ, ϕ, f, MvNormal(cov(dist(F))))
 end
 function copy(F::NelsonSiegelUnitRoot)
     τ = copy(maturities(F))
     f = copy(factors(F))
 
-    return NelsonSiegelUnitRoot(decay(F), τ, f, MvNormal(cov(dist)))
+    return NelsonSiegelUnitRoot(decay(F), τ, f, MvNormal(cov(dist(F))))
 end
 
 # dynamic factor model
