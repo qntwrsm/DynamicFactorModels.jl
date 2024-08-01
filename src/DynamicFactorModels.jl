@@ -21,7 +21,7 @@ using Distributions
 
 using StatsAPI: StatisticalModel
 
-using MultivariateStats: PCA, projection, transform
+using MultivariateStats: PCA, projection, predict
 
 using IrrationalConstants: log2π
 

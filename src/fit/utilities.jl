@@ -89,7 +89,7 @@ function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractM
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
         loadings(F) .= projection(M)
-        factors(F) .= transform(M, y)
+        factors(F) .= predict(M, y)
         
         # factor dynamics
         for (r, f) = pairs(eachrow(factors(F)))
@@ -105,7 +105,7 @@ function init!(F::UnrestrictedStationaryFull, method::Symbol, y::AbstractMatrix)
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
         loadings(F) .= projection(M)
-        factors(F) .= transform(M, y)
+        factors(F) .= predict(M, y)
         
         # factor dynamics
         @views f1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
@@ -125,7 +125,7 @@ function init!(F::UnrestrictedUnitRoot, method::Symbol, y::AbstractMatrix)
         # factors and loadings via PCA
         M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
         loadings(F) .= projection(M)
-        factors(F) .= transform(M, y)
+        factors(F) .= predict(M, y)
         
         # factor variance
         cov(F).diag .= var(factors(F), dims=2)
