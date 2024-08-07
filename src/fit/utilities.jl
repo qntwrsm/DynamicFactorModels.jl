@@ -178,12 +178,14 @@ function init!(ε::SpatialAutoregression, method::Symbol)
     if method == :data
         # estimate spatial filter
         if length(spatial(ε)) == 1
-            ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
-            spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
+            # ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
+            # spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
+            spatial(ε) .= 0.0
         else
             for i ∈ eachindex(spatial(ε))
-                ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
-                spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
+                # ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
+                # spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
+                spatial(ε)[i] = 0.0
             end
         end
 
