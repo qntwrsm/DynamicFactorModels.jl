@@ -176,18 +176,8 @@ init!(μ::Exogenous, method::Symbol, y::AbstractMatrix) = method == :data && (sl
 init!(ε::Simple, method::Symbol) = method == :data && (cov(ε).diag .= var(resid(ε), dims=2))
 function init!(ε::SpatialAutoregression, method::Symbol)
     if method == :data
-        # estimate spatial filter
-        if length(spatial(ε)) == 1
-            # ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
-            # spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
-            spatial(ε) .= 0.0
-        else
-            for i ∈ eachindex(spatial(ε))
-                # ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
-                # spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
-                spatial(ε)[i] = 0.0
-            end
-        end
+        # spatial filter
+        spatial(ε) .= zero(eltype(spatial(ε)))
 
         # estimate covariance matrix
         resid(ε) .= poly(ε) * resid(ε)
@@ -198,16 +188,8 @@ function init!(ε::SpatialAutoregression, method::Symbol)
 end
 function init!(ε::SpatialMovingAverage, method::Symbol)
     if method == :data
-        # estimate spatial filter
-        if length(spatial(ε)) == 1
-            ρ = dot(weights(ε) * resid(ε), resid(ε)) / sum(abs2, weights(ε) * resid(ε))
-            spatial(ε) .= max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρ))
-        else
-            for i ∈ eachindex(spatial(ε))
-                ρi = dot(weights(ε)[i,:]' * resid(ε), resid(ε)[i,:]) / sum(abs2, weights(ε)[i,:]' * resid(ε))
-                spatial(ε)[i] = max(-0.99 * ε.ρ_max, min(0.99 * ε.ρ_max, ρi))
-            end
-        end
+        # spatial filter
+        spatial(ε) .= zero(eltype(spatial(ε)))
 
         # estimate covariance matrix
         resid(ε) .= poly(ε) \ resid(ε)
