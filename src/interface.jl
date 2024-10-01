@@ -339,30 +339,34 @@ function model_tuning_ic!(
 end
 
 """
-    model_tuning_cv!(model, regularizers, blocks, periods; parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
+    model_tuning_cv!(model, regularizers, blocks, periods; metric=:mse, parallel=false, verbose=false, kwargs...) -> (model_opt, index_opt)
 
 Search for the optimal regularizer in `regularizers` for the dynamic factor
 model `model` using cross-validation with out-of-sample consisting of `blocks`
-blocks with `periods` period ahead forecasts. If `parallel` is true, the search
-is performed in parallel. If `verbose` is true, a summary of model tuning and
-progress of the search is printed. Additional keyword arguments `kwargs` are
-passed to the `fit!` function.
+blocks with `periods` period ahead forecasts and metric `metric`. If `parallel`
+is true, the search is performed in parallel. If `verbose` is true, a summary of
+model tuning and progress of the search is printed. Additional keyword arguments
+`kwargs` are passed to the `fit!` function.
 """
 function model_tuning_cv!(
     model::DynamicFactorModel,
     regularizers::AbstractArray,
     blocks::Integer,
     periods::Integer;
+    metric::Symbol=:mse,
     parallel::Bool=false,
     verbose::Bool=false,
     kwargs...
 )
+    metric ∉ (:mse, :mae) && error("Accuracy matric $metric not supported.")
+
     if verbose
         println("Model tuning summary")
         println("====================")
         println("Number of regularizers: $(length(regularizers))")
         println("Number of out-of-sample blocks: $blocks")
         println("Forecast periods per block: $periods")
+        println("Forecast accuracy metric: $metric")
         println("Parallel: $(parallel ? "yes" : "no")")
         println("====================")
     end
@@ -387,27 +391,31 @@ function model_tuning_cv!(
             missing
         end
     end
-    msfe = map(θ) do θi
+    avg_loss = map(θ) do θi
         if all(ismissing.(θi))
             missing
         else
-            e_sq = zero(eltype(data(model)))
+            loss = zero(eltype(data(model)))
             for (t, test_model) ∈ pairs(test_models)
                 params!(test_model, θi)
                 oos_range = (T_train + t):(T_train + t + periods - 1)
-                e_sq += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+                if metric == :mse
+                    loss += sum(abs2, view(data(model), :, oos_range) - forecast(test_model, periods))
+                elseif metric == :mae
+                    loss += sum(abs, view(data(model), :, oos_range) - forecast(test_model, periods))
+                end
             end
-            e_sq / (n * length(test_models) * periods)
+            loss / (n * length(test_models) * periods)
         end
     end
-    (msfe_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(msfe))
+    (avg_loss_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(avg_loss))
     fit!(model, regularizer=regularizers[index_opt]; kwargs...)
 
     if verbose
         println("====================")
         println("Optimal regularizer index: $(index_opt)")
-        println("Optimal forecast accuracy: $(msfe_opt)")
-        println("Failed fits: $(sum(ismissing.(msfe)))")
+        println("Optimal forecast accuracy: $(avg_loss_opt)")
+        println("Failed fits: $(sum(ismissing.(avg_loss)))")
         println("====================")
     end
     
