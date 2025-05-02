@@ -17,7 +17,7 @@ using Distributed
 using LinearAlgebra
 using FillArrays
 using Random
-using Distributions
+using Distributions: MvNormal
 
 using StatsAPI: StatisticalModel
 

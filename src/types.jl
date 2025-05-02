@@ -155,6 +155,13 @@ function poly(ε::SpatialMovingAverage)
         return I + Diagonal(spatial(ε)) * weights(ε)
     end
 end
+Base.copy(ε::Simple) = Simple(copy(cov(Σ)))
+function Base.copy(ε::SpatialAutoregression)
+    SpatialAutoregression(copy(spatial(ε)), ε.ρmax, copy(weights(ε)), copy(cov(ε)))
+end
+function Base.copy(ε::SpatialMovingAverage)
+    SpatialMovingAverage(copy(spatial(ε)), ε.ρmax, copy(weights(ε)), copy(cov(ε)))
+end
 
 # factor process
 """
@@ -329,14 +336,14 @@ dynamics(F::AbstractFactorProcess) = F.ϕ
 dynamics(F::UnrestrictedUnitRoot) = I
 dynamics(F::NelsonSiegelUnitRoot) = I
 cov(F::AbstractFactorProcess) = F.Σ
-function copy(F::UnrestrictedStationaryIdentified)
+function Base.copy(F::UnrestrictedStationaryIdentified)
     Λ = copy(loadings(F))
     f = copy(factors(F))
     ϕ = copy(dynamics(F))
 
     return UnrestrictedStationaryIdentified(Λ, f, ϕ)
 end
-function copy(F::UnrestrictedStationaryFull)
+function Base.copy(F::UnrestrictedStationaryFull)
     Λ = copy(loadings(F))
     f = copy(factors(F))
     ϕ = copy(dynamics(F))
@@ -344,14 +351,14 @@ function copy(F::UnrestrictedStationaryFull)
 
     return UnrestrictedStationaryFull(Λ, f, ϕ, Σ)
 end
-function copy(F::UnrestrictedUnitRoot)
+function Base.copy(F::UnrestrictedUnitRoot)
     Λ = copy(loadings(F))
     f = copy(factors(F))
     Σ = copy(cov(F))
 
     return UnrestrictedUnitRoot(Λ, f, Σ)
 end
-function copy(F::NelsonSiegelStationary)
+function Base.copy(F::NelsonSiegelStationary)
     τ = copy(maturities(F))
     f = copy(factors(F))
     ϕ = copy(dynamics(F))
@@ -359,7 +366,7 @@ function copy(F::NelsonSiegelStationary)
 
     return NelsonSiegelStationary(decay(F), τ, f, ϕ, Σ)
 end
-function copy(F::NelsonSiegelUnitRoot)
+function Base.copy(F::NelsonSiegelUnitRoot)
     τ = copy(maturities(F))
     f = copy(factors(F))
     Σ = copy(cov(F))
