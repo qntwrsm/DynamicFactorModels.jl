@@ -1,9 +1,9 @@
 #=
 DynamicFactorModels.jl
 
-    Provides a collection of tools for working with dynamic factor models, such 
-    as estimation, w/ and w/o regularization, forecasting, filtering, and 
-    smoothing. 
+    Provides a collection of tools for working with dynamic factor models, such
+    as estimation, w/ and w/o regularization, forecasting, filtering, and
+    smoothing.
 
 @author: Quint Wiersma <q.wiersma@vu.nl>
 
@@ -38,7 +38,6 @@ using ProgressMeter
 
 using StatsAPI: aic, aicc, bic
 
-import Base: show, size, copy
 import Statistics: mean, var, cov
 import StatsAPI: params, params!, fit!, loglikelihood, dof, nobs
 import ProximalOperators: prox!
@@ -50,7 +49,7 @@ export
     NelsonSiegelStationary, NelsonSiegelUnitRoot,           # Nelson-Siegel factor processes
     ZeroMean, Exogenous,                                    # mean specifications
     Simple, SpatialAutoregression, SpatialMovingAverage,    # error models
-    NormL21Weighted, NormL1plusL21, TotalVariation1D,       # regularizers  
+    NormL21Weighted, NormL1plusL21, TotalVariation1D,       # regularizers
 
     # interface methods
     ## getters
@@ -67,13 +66,13 @@ export
     fit!,
     model_tuning_ic!, model_tuning_cv!,
     loglikelihood,
-    dof, nobs, aic, aicc, bic,
+    dof, nobs, nfactors, aic, aicc, bic,
 
     # forecast
     forecast,
 
     # irf
-    girf
+    irf
 
 include("types.jl")
 include("show.jl")

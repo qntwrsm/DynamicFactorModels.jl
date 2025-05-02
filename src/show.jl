@@ -1,7 +1,7 @@
 #=
 show.jl
 
-    Provides a collection of methods for pretty printing dynamic factor models 
+    Provides a collection of methods for pretty printing dynamic factor models
     and its components.
 
 @author: Quint Wiersma <q.wiersma@vu.nl>
@@ -10,9 +10,10 @@ show.jl
 =#
 
 # union type for all models
-Models = Union{DynamicFactorModel, AbstractFactorProcess, AbstractMeanSpecification, AbstractErrorModel}
+Models = Union{DynamicFactorModel, AbstractFactorProcess, AbstractMeanSpecification,
+               AbstractErrorModel}
 
-function show(io::IO, model::Models)
+function Base.show(io::IO, model::Models)
     print(io, nameof(typeof(model)))
     println(io, "(")
     for p in fieldnames(typeof(model))
