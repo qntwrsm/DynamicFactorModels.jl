@@ -413,7 +413,7 @@ Forecast `periods` ahead using the dynamic factor model `model`.
 """
 function forecast(model::DynamicFactorModel, periods::Integer)
     # filter
-    (a, _, v, _, K) = filter(model)
+    (a, _, _, _) = filter(model, predict = true)
     a_hat = similar(a[end])
     forecasts = similar(data(model), size(model)[1], periods)
 
@@ -423,7 +423,7 @@ function forecast(model::DynamicFactorModel, periods::Integer)
     # forecast
     for h in 1:periods
         if h == 1
-            a_hat .= dynamics(model) * a[end] + K[end] * v[end]
+            a_hat .= a[end]
         else
             a_hat .= dynamics(model) * a_hat
         end
