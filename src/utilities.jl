@@ -73,7 +73,6 @@ function simulate(F::AbstractFactorProcess, S::Integer; rng::AbstractRNG = Xoshi
         else
             fs .= dynamics(F) * f[:, s - 1] + rand(rng, dist)
         end
-
     end
 
     return f
@@ -107,160 +106,248 @@ function simulate(ε::SpatialMovingAverage, S::Integer; rng::AbstractRNG = Xoshi
 end
 
 """
-    collapse(model) -> (A_low, Z_basis)
+    state_space_init(model) -> (a1, P1)
 
-Low-dimensional collapsing matrices for the dynamic factor model `model`
-following the approach of Jungbacker and Koopman (2015).
+State space initial conditions of the state space form of the dynamic factor model `model`.
 """
-function collapse(model::DynamicFactorModel)
-    # active factors
-    active = [!all(iszero, λ) for λ in eachcol(loadings(model))]
+function state_space_init(model::DynamicFactorModel)
+    T = eltype(data(model))
+    R = nfactors(model)
+    a1 = zeros(T, R)
+    P1 = Matrix{T}(I, R, R)
 
-    # collapsing matrix
-    H = cov(model)
-    if all(active)
-        C = (H \ loadings(model))' * loadings(model)
-        Z_basis = (C \ loadings(model)')'
-    else
-        Z_basis = loadings(model)[:, active]
-    end
-    A_low = (H \ Z_basis)'
-
-    return (A_low, Z_basis)
+    return (a1, P1)
 end
 
 """
-    state_space(model) -> (y_low, Z_low, d_low, H_low, a1, P1)
+    collapse(model; objective = false) -> (y_low, d_low, Z_low, H_low[, M])
 
-State space form of the collapsed dynamic factor model `model` following the
-approach of Jungbacker and Koopman (2015).
+Collapsed system components for the collapsed state space form of the dynamic factor model
+`model` following the approach of Jungbacker and Koopman (2015). Optional `objective`
+boolean indicating whether the collapsed system components are used for objective function
+(log-likelihood) computation, in which case additionally the annihilator matrix is returned.
 """
-function state_space(model::DynamicFactorModel)
-    R = size(process(model))
-    Ty = eltype(data(model))
+function collapse(model::DynamicFactorModel; objective::Bool = false)
+    # linearly independent columns
+    F = qr(loadings(model), ColumnNorm())
+    ic = isapprox.(diag(F.R), 0.0, atol = 1e-8)
 
-    # active factors
-    active = [!all(iszero, λ) for λ in eachcol(loadings(model))]
-
-    # collapsing matrix
-    if any(active)
-        (A_low, _) = collapse(model)
-    else
+    # collapsing matrices
+    Z_basis = Z[:, .!ic]
+    if all(ic)
         A_low = I
+    else
+        A_low = (cov(model) \ Z_basis)'
     end
 
-    # collapsing
-    y_low = A_low * data(model)
+    # collapsed system
+    y_low = [A_low * yt for yt in eachcol(data(model))]
     Z_low = A_low * loadings(model)
     if mean(model) isa ZeroMean
-        d_low = Zeros(mean(model).type, size(y_low))
+        d_low = [Zeros(mean(model).type, nfactors(model)) for _ in 1:nobs(model)]
     elseif mean(model) isa Exogenous
-        d_low = A_low * mean(mean(model))
+        d_low = [A_low * μt for μt in eachcol(mean(mean(model)))]
     end
     H_low = A_low * cov(model) * A_low'
 
-    # initial conditions
-    a1 = zeros(Ty, R)
-    P1 = Matrix{Ty}(I, R, R)
+    # annihilator matrix for log-likelihood
+    if objective
+        if all(ic)
+            M = Zeros(eltype(data(model)), size(data(model), 1))
+        else
+            M = I - Z_basis * (H_low \ A_low)
+        end
 
-    return (y_low, Z_low, d_low, H_low, a1, P1)
+        return (y_low, d_low, Z_low, H_low, M)
+    else
+        return (y_low, d_low, Z_low, H_low)
+    end
 end
 
 """
-    _filter(y, Z, d, H, T, Q, a1, P1) -> (a, P, v, F, K)
+    filter(model; predict = false) -> (a, P, v, F)
 
-Kalman filter for the state space system `y`, `Z`, `d`, `H`, `T`, `Q`, `a1`,
-and `P1`.
+Collapsed Kalman filter for the dynamic factor model `model`. Returns the filtered state `a`
+, covariance `P`, forecast error `v`, and forecast error variance `F`. If `predict` is
+`true` the filter reports the one-step ahead out-of-sample prediction.
 """
-function _filter(y, Z, d, H, T, Q, a1, P1)
+function filter(model::DynamicFactorModel; predict::Bool = false)
+    # collapsed state space system
+    (y, d, Z, H) = collapse(model)
+    T = dynamics(model)
+    Q = cov(process(model))
+    (a1, P1) = state_space_init(model)
+
     # initialize filter output
-    n = size(y, 2)
-    a = Vector{typeof(a1)}(undef, n)
-    P = Vector{typeof(P1)}(undef, n)
-    v = Vector{typeof(a1)}(undef, n)
-    F = Vector{typeof(P1)}(undef, n)
-    K = Vector{typeof(P1)}(undef, n)
+    n = length(y) + (predict ? 1 : 0)
+    a = similar(y, typeof(a1), n)
+    P = similar(y, typeof(P1), n)
+    v = similar(y)
+    F = similar(y, typeof(P1))
+
+    # initialize storage
+    ZtFinv = similar(P1)
+    att = similar(a1)
+    Ptt = similar(P1)
 
     # initialize filter
     a[1] = a1
     P[1] = P1
 
     # filter
-    for (t, yt) in pairs(eachcol(y))
+    for t in eachindex(y)
         # forecast error
-        v[t] = yt - Z * a[t] - view(d, :, t)
+        v[t] = y[t] - d[t] - Z * a[t]
         F[t] = Z * P[t] * Z' + H
 
-        # Kalman gain
-        K[t] = T * P[t] * (F[t] \ Z)'
+        # update
+        ZtFinv .= (F[t] \ Z)'
+        att .= a[t] + P[t] * ZtFinv * v[t]
+        Ptt .= P[t] - P[t] * ZtFinv * Z * P[t]
 
         # prediction
-        if t < n
-            a[t + 1] = T * a[t] + K[t] * v[t]
-            P[t + 1] = T * P[t] * (T - K[t] * Z)' + Q
+        if predict || t < length(y)
+            a[t + 1] = T * att
+            P[t + 1] = T * Ptt * T' + Q
+            # enforce symmetry for numerical stability
+            P[t + 1] = 0.5 * (P[t + 1] + P[t + 1]')
         end
     end
 
-    return (a, P, v, F, K)
+    return (a, P, v, F)
 end
 
 """
-    filter(model) -> (a, P, v, F, K)
+    _filter_smoother(y, d, Z, H, T, Q, a1, P1) -> (a, P, v, ZtFinv)
 
-Collapsed Kalman filter for the dynamic factor model `model`. Returns the
-filtered state `a`, covariance `P`, forecast error `v`, forecast error variance
-`F`, and Kalman gain `K`.
+Collapsed Kalman filter for the dynamic factor model used internally by the `smoother`
+routine to avoid duplicate expensive computation of state space system matrices.
 """
-function filter(model::DynamicFactorModel)
-    # collapsed state space system
-    (y, Z, d, H, a1, P1) = state_space(model)
-    T = dynamics(model)
-    Q = cov(process(model))
+function _filter_smoother(y, d, Z, H, T, Q, a1, P1)
+    # initialize filter output
+    a = similar(y, typeof(a1))
+    P = similar(y, typeof(P1))
+    v = similar(y)
+    ZtFinv = similar(y, typeof(P1))
 
-    return _filter(y, Z, d, H, T, Q, a1, P1)
-end
+    # initialize storage
+    F = similar(P1)
+    att = similar(a1)
+    Ptt = similar(P1)
 
-"""
-    smoother(model) -> (α̂, V, Γ)
-
-Collapsed Kalman smoother for the dynamic factor model `model`. Returns the
-smoothed state `α̂`, covariance `V`, and autocovariance `Γ`.
-"""
-function smoother(model::DynamicFactorModel)
-    # collapsed state space system
-    (y, Z, d, H, a1, P1) = state_space(model)
-    T = dynamics(model)
-    Q = cov(process(model))
+    # initialize filter
+    a[1] = a1
+    P[1] = P1
 
     # filter
-    (a, P, v, F, K) = _filter(y, Z, d, H, T, Q, a1, P1)
+    for t in eachindex(y)
+        # forecast error
+        v[t] = y[t] - d[t] - Z * a[t]
+        F .= Z * P[t] * Z' + H
 
-    # initialize smoother output
-    α̂ = similar(a)
-    V = similar(P)
-    Γ = similar(P, length(a) - 1)
+        # update
+        ZtFinv[t] = (F \ Z)'
+        att .= a[t] + P[t] * ZtFinv[t] * v[t]
+        Ptt .= P[t] - P[t] * ZtFinv[t] * Z * P[t]
 
-    # initialize smoother
-    r = zero(a1)
-    N = zero(P1)
-    L = similar(P1)
-
-    # smoother
-    for t in reverse(eachindex(a))
-        L .= T - K[t] * Z
-
-        # backward recursion
-        r .= (F[t] \ Z)' * v[t] + L' * r
-        N .= (F[t] \ Z)' * Z + L' * N * L
-
-        # smoothing
-        α̂[t] = a[t] + P[t] * r
-        V[t] = P[t] - P[t] * N * P[t]
-        t > 1 && (Γ[t - 1] = I - P[t] * N)
-        t < length(a) && (Γ[t] *= L * P[t])
+        # prediction
+        if t < length(y)
+            a[t + 1] = T * att
+            P[t + 1] = T * Ptt * T' + Q
+            # enforce symmetry for numerical stability
+            P[t + 1] = 0.5 * (P[t + 1] + P[t + 1]')
+        end
     end
 
-    return (α̂, V, Γ)
+    return (a, P, v, ZtFinv)
+end
+
+"""
+    _filter_likelihood(y, d, Z, H, T, Q, a1, P1) -> (v, F, fac)
+
+Collapsed Kalman filter for the dynamic factor model used internally by the `loglikelihood`
+routine to avoid duplicate expensive computation of collapsing components and state space
+system matrices.
+"""
+function _filter_likelihood(y, d, Z, H, T, Q, a1, P1)
+    # initialize filter output
+    v = similar(y)
+    F = similar(y, typeof(P1))
+
+    # initialize storage
+    ZtFinv = similar(P1)
+    att = similar(a1)
+    Ptt = similar(P1)
+
+    # initialize filter
+    a = copy(a1)
+    P = copy(P1)
+
+    # filter
+    for t in eachindex(y)
+        # forecast error
+        v[t] = y[t] - d[t] - Z * a
+        F[t] = Z * P * Z' + H
+
+        # update
+        ZtFinv .= (F[t] \ Z)'
+        att .= a + P * ZtFinv * v[t]
+        Ptt .= P - P * ZtFinv * Z * P
+
+        # prediction
+        if t < length(y)
+            a .= T * att
+            P = T * Ptt * T' + Q
+            # enforce symmetry for numerical stability
+            P = 0.5 * (P + P')
+        end
+    end
+
+    return (v, F)
+end
+
+"""
+    smoother(model) -> (α, V, Γ)
+
+Collapsed Kalman smoother for the dynamic factor model `model`. Returns the smoothed state
+`α`, covariance `V`, and autocovariance `Γ`.
+"""
+function smoother(model::DynamicTensorAutoregression)
+    # collapsed state space system
+    (y, d, Z, H) = collapse(model)
+    T = dynamics(model)
+    Q = cov(process(model))
+    (a1, P1) = state_space_init(model)
+
+    # filter
+    (a, P, v, ZtFinv) = _filter_smoother(y, d, Z, H, T, Q, a1, P1)
+
+    # initialize smoother output
+    α = similar(a)
+    V = similar(P)
+    Γ = similar(P, length(y) - 1)
+
+    # initialize smoother
+    r = zero(a[1])
+    N = zero(P[1])
+    L = similar(P[1])
+
+    # smoother
+    for t in reverse(eachindex(y))
+        L .= T - T * P[t] * ZtFinv[t] * Z
+
+        # backward recursion
+        r .= ZtFinv[t] * v[t] + L' * r
+        N .= ZtFinv[t] * Z[t] + L' * N * L
+
+        # smoothing
+        α[t] = a[t] + P[t] * r
+        V[t] = P[t] - P[t] * N * P[t]
+        t > 1 && (Γ[t - 1] = I - P[t] * N)
+        t < length(y) && (Γ[t] *= L * P[t])
+    end
+
+    return (α, V, Γ)
 end
 
 """
@@ -268,5 +355,7 @@ end
 
 Forecast the mean model `μ` `periods` ahead.
 """
-forecast(μ::AbstractMeanSpecification, periods::Integer) = error("forecast for $(Base.typename(typeof(μ)).wrapper) not implemented.")
+function forecast(μ::AbstractMeanSpecification, periods::Integer)
+    error("forecast for $(Base.typename(typeof(μ)).wrapper) not implemented.")
+end
 forecast(μ::ZeroMean, periods::Integer) = Zeros(μ.type, μ.n, periods)
