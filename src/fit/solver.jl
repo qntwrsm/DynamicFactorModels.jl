@@ -237,8 +237,8 @@ end
 """
     update!(ε, e, Λ, V, regularizer)
 
-Update error model `ε` using errors `e`, factor loadings `Λ`, smoothed covariance matrix `V`
-, andregularization given by `regularizer`.
+Update error model `ε` using errors `e`, factor loadings `Λ`, smoothed covariance matrix `V`,
+and regularization given by `regularizer`.
 
 Update is perfomed using MLE when regularizer is `nothing`. This implies for the covariance
 matrix the expectation of the (scaled) sum of squared residuals.
@@ -251,6 +251,8 @@ function update!(ε::Simple, e::AbstractMatrix, Λ::AbstractMatrix, V::AbstractV
     end
     Eee = e * e' + Λ * Vsum * Λ'
     cov(ε).diag .= diag(Eee) ./ size(e, 2)
+    cov(ε).diag .= (dot.(eachrow(e), eachrow(e)) .+ dot.(eachrow(Λ), Ref(Vsum), eachrow(Λ))) ./
+                   size(e, 2)
 
     return nothing
 end
@@ -278,7 +280,7 @@ function update!(ε::SpatialAutoregression, e::AbstractMatrix, Λ::AbstractMatri
 
     # update covariance matrix
     G = poly(ε)
-    cov(ε).diag .= diag(G * Eee * G') ./ size(e, 2)
+    cov(ε).diag .= dot.(eachrow(G), Ref(Eee), eachrow(G)) ./ size(e, 2)
 
     return nothing
 end
@@ -309,7 +311,7 @@ function update!(ε::SpatialAutoregression, e::AbstractMatrix, Λ::AbstractMatri
 
     # update covariance matrix
     G = poly(ε)
-    cov(ε).diag .= diag(G * Eee * G') ./ size(e, 2)
+    cov(ε).diag .= dot.(eachrow(G), Ref(Eee), eachrow(G)) ./ size(e, 2)
 
     return nothing
 end
