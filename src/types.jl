@@ -336,6 +336,7 @@ dynamics(F::AbstractFactorProcess) = F.ϕ
 dynamics(F::UnrestrictedUnitRoot) = I
 dynamics(F::NelsonSiegelUnitRoot) = I
 cov(F::AbstractFactorProcess) = F.Σ
+nfactors(F::AbstractFactorProcess) = size(factors(F), 1)
 function Base.copy(F::UnrestrictedStationaryIdentified)
     Λ = copy(loadings(F))
     f = copy(factors(F))
@@ -426,4 +427,4 @@ loadings(model::DynamicFactorModel) = loadings(process(model))
 factors(model::DynamicFactorModel) = factors(process(model))
 dynamics(model::DynamicFactorModel) = dynamics(process(model))
 nobs(model::DynamicFactorModel) = size(data(model), 2)
-nfactors(model::DynamicFactorModel) = size(loadings(model), 2)
+nfactors(model::DynamicFactorModel) = nfactors(process(model))
