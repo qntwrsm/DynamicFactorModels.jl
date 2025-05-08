@@ -312,7 +312,7 @@ end
 Collapsed Kalman smoother for the dynamic factor model `model`. Returns the smoothed state
 `α`, covariance `V`, and autocovariance `Γ`.
 """
-function smoother(model::DynamicTensorAutoregression)
+function smoother(model::DynamicFactorModel)
     # collapsed state space system
     (y, d, Z, H) = collapse(model)
     T = dynamics(model)
