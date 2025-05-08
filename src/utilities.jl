@@ -263,7 +263,7 @@ function _filter_smoother(y, d, Z, H, T, Q, a1, P1)
 end
 
 """
-    _filter_likelihood(y, d, Z, H, T, Q, a1, P1) -> (v, F, fac)
+    _filter_likelihood(y, d, Z, H, T, Q, a1, P1) -> (v, F)
 
 Collapsed Kalman filter for the dynamic factor model used internally by the `loglikelihood`
 routine to avoid duplicate expensive computation of collapsing components and state space

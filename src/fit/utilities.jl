@@ -1,7 +1,7 @@
 #=
 utilities.jl
 
-    Provides a collection of utility tools for fitting dynamic factor models, 
+    Provides a collection of utility tools for fitting dynamic factor models,
     such as initialization, convergence checks, and log-likelihood evaluation.
 
 @author: Quint Wiersma <q.wiersma@vu.nl>
@@ -51,23 +51,22 @@ end
 
 Initialize the dynamic factor model `model` by `method`.
 
-When `method` is set to `:data`: 
-- Initialization of the loading matrix is based on principal component analysis
-  (PCA) of the data if the loaings matrix is unrestricted and based on the value
-  of the decay parameter found in Diebold and Li (2006) if it obeys a
-  Nelson-Siegel structure.
-- Initialization of the factor process dynamics is based on the OLS estimates of
-  the autoregressions of the PCA factors or Nelson-Siegel factors estimated
-  using the two-step approach of Diebold and Li (2006).
-- Initialization of the exogeneous mean specification is based on the OLS
-  estimates of the slopes based on the residuals, ``yₜ - Λ̂f̂ₜ``.
-- Initialization of the simple error model is based on the sample covariance
-  matrix of the residuals, ``yₜ - μ̂ₜ - Λ̂f̂ₜ``. For the spatial error models
-  the spatial filter is first estimated, after which the sample covariance
-  matrix is calculated on the filtered residuals.
+When `method` is set to `:data`:
+- Initialization of the loading matrix is based on principal component analysis (PCA) of the
+  data if the loaings matrix is unrestricted and based on the value of the decay parameter
+  found in Diebold and Li (2006) if it obeys a Nelson-Siegel structure.
+- Initialization of the factor process dynamics is based on the OLS estimates of the
+  autoregressions of the PCA factors or Nelson-Siegel factors estimated using the two-step
+  approach of Diebold and Li (2006).
+- Initialization of the exogeneous mean specification is based on the OLS estimates of the
+  slopes based on the residuals, ``yₜ - Λ̂f̂ₜ``.
+- Initialization of the simple error model is based on the sample covariance matrix of the
+  residuals, ``yₜ - μ̂ₜ - Λ̂f̂ₜ``. For the spatial error models the spatial filter is first
+  estimated, after which the sample covariance matrix is calculated on the filtered
+  residuals.
 
-When `method` is set to `:none` no initialization is performed and the model is
-assumed to have been initialized manually before fitting.
+When `method` is set to `:none` no initialization is performed and the model is assumed to
+have been initialized manually before fitting.
 """
 function init!(model::DynamicFactorModel, method::NamedTuple)
     # initialize mean specification
@@ -77,9 +76,9 @@ function init!(model::DynamicFactorModel, method::NamedTuple)
     init!(process(model), method.factors, data(model) .- mean(mean(model)))
 
     # initialize error specification
-    resid(model) .= data(model) .- mean(mean(model)) - loadings(model) * factors(model)
-    init!(errors(model), method.error)
-        
+    e = data(model) .- mean(mean(model)) - loadings(model) * factors(model)
+    init!(errors(model), method.error, e)
+
     return nothing
 end
 
@@ -87,13 +86,13 @@ end
 function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
-        
+
         # factor dynamics
-        for (r, f) = pairs(eachrow(factors(F)))
-            ϕi = dot(f[1:end-1], f[2:end]) / sum(abs2, f[1:end-1])
+        for (r, f) in pairs(eachrow(factors(F)))
+            ϕi = dot(f[1:(end - 1)], f[2:end]) / sum(abs2, f[1:(end - 1)])
             dynamics(F).diag[r] = max(-0.99, min(0.99, ϕi))
         end
     end
@@ -103,19 +102,20 @@ end
 function init!(F::UnrestrictedStationaryFull, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
-        
+
+        # lag and lead
+        @views flag = factors(F)[:, 1:(end - 1)]
+        @views flead = factors(F)[:, 2:end]
+
         # factor dynamics
-        @views f1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
-        @views ff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
-        dynamics(F) .= ff1 / f1f1
+        dynamics(F) .= flead / flag
 
         # factor variance
-        @views η = factors(F)[:,2:end] - dynamics(F) * factors(F)[:,1:end-1]
-        cov(F).mat .= cov(η, dims=2)
-        cov(F).chol.factors .= cholesky(cov(F).mat).factors
+        η = flead - dynamics(F) * flag
+        cov(F).data .= cov(η, dims = 2)
     end
 
     return nothing
@@ -123,12 +123,12 @@ end
 function init!(F::UnrestrictedUnitRoot, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim=size(F), pratio=1.0)
+        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
-        
+
         # factor variance
-        cov(F).diag .= var(factors(F), dims=2)
+        cov(F).diag .= var(factors(F), dims = 2)
     end
 
     return nothing
@@ -138,16 +138,18 @@ function init!(F::NelsonSiegelStationary, method::Symbol, y::AbstractMatrix)
         # factors and decay using Diebold and Li (2006)
         F.λ = 0.0609
         Λ = loadings(F)
-        factors(F) .= (Λ' * Λ) \ (Λ' * y)
-        
+        factors(F) .= Λ \ y
+
+        # lag and lead
+        @views flag = factors(F)[:, 1:(end - 1)]
+        @views flead = factors(F)[:, 2:end]
+
         # factor dynamics
-        @views f1f1 = factors(F)[:,1:end-1] * factors(F)[:,1:end-1]'
-        @views ff1 = factors(F)[:,2:end] * factors(F)[:,1:end-1]'
-        dynamics(F) .= ff1 / f1f1
+        dynamics(F) .= flead / flag
 
         # factor variance
-        @views η = factors(F)[:,2:end] - dynamics(F) * factors(F)[:,1:end-1]
-        cov(F).mat .= cov(η, dims=2)
+        η = flead - dynamics(F) * flag
+        cov(F).mat .= cov(η, dims = 2)
         cov(F).chol.factors .= cholesky(cov(F).mat).factors
     end
 
@@ -158,11 +160,11 @@ function init!(F::NelsonSiegelUnitRoot, method::Symbol, y::AbstractMatrix)
         # factors and decay using Diebold and Li (2006)
         F.λ = 0.0609
         Λ = loadings(F)
-        factors(F) .= (Λ' * Λ) \ (Λ' * y)
-        
+        factors(F) .= Λ \ y
+
         # factor process
-        @views η = factors(F)[:,2:end] - factors(F)[:,1:end-1]
-        cov(F).diag .= var(η, dims=2)
+        η = diff(factors(F), dims = 2)
+        cov(F).diag .= var(η, dims = 2)
     end
 
     return nothing
@@ -170,37 +172,42 @@ end
 
 # mean specification
 init!(μ::ZeroMean, method::Symbol, y::AbstractMatrix) = nothing
-init!(μ::Exogenous, method::Symbol, y::AbstractMatrix) = method == :data && (slopes(μ) .= y / regressors(μ))
+function init!(μ::Exogenous, method::Symbol, y::AbstractMatrix)
+    method == :data && (slopes(μ) .= y / regressors(μ))
+end
 
 # error specification
-init!(ε::Simple, method::Symbol) = method == :data && (cov(ε).diag .= var(resid(ε), dims=2))
-function init!(ε::SpatialAutoregression, method::Symbol)
+function init!(ε::Simple, method::Symbol, e::AbstractMatrix)
+    method == :data && (cov(ε).diag .= var(e, dims = 2))
+end
+function init!(ε::SpatialAutoregression, method::Symbol, ξ::AbstractMatrix)
     if method == :data
         # spatial filter
         spatial(ε) .= zero(eltype(spatial(ε)))
 
         # estimate covariance matrix
-        resid(ε) .= poly(ε) * resid(ε)
-        cov(ε).diag .= var(resid(ε), dims=2)
+        e = poly(ε) * ξ
+        cov(ε).diag .= var(e, dims = 2)
     end
 
     return nothing
 end
-function init!(ε::SpatialMovingAverage, method::Symbol)
+function init!(ε::SpatialMovingAverage, method::Symbol, ξ::AbstractMatrix)
     if method == :data
         # spatial filter
         spatial(ε) .= zero(eltype(spatial(ε)))
 
         # estimate covariance matrix
-        resid(ε) .= poly(ε) \ resid(ε)
-        cov(ε).diag .= var(resid(ε), dims=2)
+        e = poly(ε) \ ξ
+        cov(ε).diag .= var(e, dims = 2)
     end
 
     return nothing
 end
 
 function params(model::DynamicFactorModel)
-    (n, _, R) = size(model)
+    n = size(data(model), 1)
+    R = nfactors(model)
 
     # number of parameters
     n_params = n
@@ -208,7 +215,8 @@ function params(model::DynamicFactorModel)
     process(model) isa UnrestrictedStationaryFull && (n_params += R * (2R - 1))
     process(model) isa AbstractNelsonSiegelFactorProcess && (n_params += 1 + 2R^2)
     process(model) isa NelsonSiegelUnitRoot && (n_params -= 2R^2 - R)
-    errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} && (n_params += length(spatial(errors(model))))
+    errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage} &&
+        (n_params += length(spatial(errors(model))))
     mean(model) isa Exogenous && (n_params += length(slopes(mean(model))))
 
     # parameters
@@ -224,7 +232,7 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     # loadings
     if process(model) isa AbstractUnrestrictedFactorProcess
         offset = length(loadings(model))
-        θ[idx:idx+offset-1] = vec(loadings(model))
+        θ[idx:(idx + offset - 1)] = vec(loadings(model))
         idx += offset
     elseif process(model) isa AbstractNelsonSiegelFactorProcess
         θ[idx] = decay(process(model))
@@ -235,54 +243,54 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
     if process(model) isa UnrestrictedStationaryIdentified
         # dynamics
         offset = length(dynamics(model).diag)
-        θ[idx:idx+offset-1] = dynamics(model).diag
+        θ[idx:(idx + offset - 1)] = dynamics(model).diag
         idx += offset
     elseif process(model) isa UnrestrictedStationaryFull
         # dynamics
         offset = length(dynamics(model))
-        θ[idx:idx+offset-1] = vec(dynamics(model))
+        θ[idx:(idx + offset - 1)] = vec(dynamics(model))
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        θ[idx:idx+offset-1] = vec(cov(process(model)))
+        θ[idx:(idx + offset - 1)] = vec(cov(process(model)))
         idx += offset
     elseif process(model) isa UnrestrictedUnitRoot
         # variance
         offset = length(cov(process(model)).diag)
-        θ[idx:idx+offset-1] = cov(process(model)).diag
+        θ[idx:(idx + offset - 1)] = cov(process(model)).diag
         idx += offset
     elseif process(model) isa NelsonSiegelStationary
         # dynamics
         offset = length(dynamics(model))
-        θ[idx:idx+offset-1] = vec(dynamics(model))
+        θ[idx:(idx + offset - 1)] = vec(dynamics(model))
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        θ[idx:idx+offset-1] = vec(cov(process(model)))
+        θ[idx:(idx + offset - 1)] = vec(cov(process(model)))
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
         offset = length(cov(process(model)).diag)
-        θ[idx:idx+offset-1] = cov(process(model)).diag
+        θ[idx:(idx + offset - 1)] = cov(process(model)).diag
         idx += offset
     end
 
     # covariance matrix
     offset = length(cov(errors(model)).diag)
-    θ[idx:idx+offset-1] = cov(errors(model)).diag
+    θ[idx:(idx + offset - 1)] = cov(errors(model)).diag
     idx += offset
 
     # mean
     if mean(model) isa Exogenous
         offset = length(slopes(mean(model)))
-        θ[idx:idx+offset-1] = vec(slopes(mean(model)))
+        θ[idx:(idx + offset - 1)] = vec(slopes(mean(model)))
         idx += offset
     end
-    
+
     # spatial dependence
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
         offset = length(spatial(errors(model)))
-        θ[idx:idx+offset-1] = spatial(errors(model))
+        θ[idx:(idx + offset - 1)] = spatial(errors(model))
     end
 
     return nothing
@@ -293,7 +301,7 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
     # loadings
     if process(model) isa AbstractUnrestrictedFactorProcess
         offset = length(loadings(model))
-        vec(loadings(model)) .= view(θ, idx:idx+offset-1)
+        vec(loadings(model)) .= view(θ, idx:(idx + offset - 1))
         idx += offset
     elseif process(model) isa AbstractNelsonSiegelFactorProcess
         process(model).λ = θ[idx]
@@ -304,90 +312,91 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
     if process(model) isa UnrestrictedStationaryIdentified
         # dynamics
         offset = length(dynamics(model).diag)
-        dynamics(model).diag .= view(θ, idx:idx+offset-1)
+        dynamics(model).diag .= view(θ, idx:(idx + offset - 1))
         idx += offset
     elseif process(model) isa UnrestrictedStationaryFull
         # dynamics
         offset = length(dynamics(model))
-        vec(dynamics(model)) .= view(θ, idx:idx+offset-1)
+        vec(dynamics(model)) .= view(θ, idx:(idx + offset - 1))
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
+        vec(cov(process(model)).mat) .= view(θ, idx:(idx + offset - 1))
         cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
         idx += offset
     elseif process(model) isa UnrestrictedUnitRoot
         # variance
         offset = length(cov(process(model)).diag)
-        cov(process(model)).diag .= view(θ, idx:idx+offset-1)
+        cov(process(model)).diag .= view(θ, idx:(idx + offset - 1))
         idx += offset
     elseif process(model) isa NelsonSiegelStationary
         # dynamics
         offset = length(dynamics(model))
-        vec(dynamics(model)) .= view(θ, idx:idx+offset-1)
+        vec(dynamics(model)) .= view(θ, idx:(idx + offset - 1))
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        vec(cov(process(model)).mat) .= view(θ, idx:idx+offset-1)
+        vec(cov(process(model)).mat) .= view(θ, idx:(idx + offset - 1))
         cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
         offset = length(cov(process(model)).diag)
-        cov(process(model)).diag .= view(θ, idx:idx+offset-1)
+        cov(process(model)).diag .= view(θ, idx:(idx + offset - 1))
         idx += offset
     end
 
     # covariance matrix
     offset = length(cov(errors(model)).diag)
-    cov(errors(model)).diag .= view(θ, idx:idx+offset-1)
+    cov(errors(model)).diag .= view(θ, idx:(idx + offset - 1))
     idx += offset
 
     # mean
     if mean(model) isa Exogenous
         offset = length(slopes(mean(model)))
-        vec(slopes(mean(model))) .= view(θ, idx:idx+offset-1)
+        vec(slopes(mean(model))) .= view(θ, idx:(idx + offset - 1))
         idx += offset
     end
-    
+
     # spatial dependence
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
         offset = length(spatial(errors(model)))
-        spatial(errors(model)) .= view(θ, idx:idx+offset-1)
+        spatial(errors(model)) .= view(θ, idx:(idx + offset - 1))
     end
 
     return nothing
 end
 
 function loglikelihood(model::DynamicFactorModel)
-    (n, T) = size(model)[1:end-1]
-    (_, _, v, F, _) = filter(model)
+    # collapsed state space system
+    (y_low, d_low, Z_low, H_low, M) = collapse(model, objective = true)
+    T = dynamics(model)
+    Q = cov(process(model))
+    (a1, P1) = state_space_init(model)
 
-    # active factors
-    active = [!all(iszero, λ) for λ ∈ eachcol(loadings(model))]
+    # filter
+    (v, F) = _filter_likelihood(y_low, d_low, Z_low, H_low, T, Q, a1, P1)
 
-    # annihilator matrix
-    if any(active)
-        (A_low, Z_basis) = collapse(model)
-        M = I - Z_basis * ((A_low * Z_basis) \ A_low)
-    else
-        A_low = I
-        M = Zeros(eltype(data(model)), n, n)
-    end
-
-    # covariance and precision matrices
+    # covariance and concentration matrix
     H = cov(model)
-    Hinv = inv(H)
-    H_low = A_low * H * A_low'
+    Hinv = inv(cov(model))
+
+    # demeaned data
+    y_demeaned = data(model) .- mean(mean(model))
 
     # log-likelihood
-    ll = -0.5 * T * (n * log2π + logdet(H) - logdet(H_low))
-    y_demeaned = data(model) .- mean(mean(model))
-    e = similar(y_demeaned, n)
-    for (t, yt) ∈ pairs(eachcol(y_demeaned))
-        ll -= 0.5 * (logdet(F[t]) + dot(v[t], inv(F[t]), v[t]))
-        mul!(e, M, yt)
-        ll -= 0.5 * dot(e, Hinv, e)
+    # constant
+    ll = -0.5 * prod(size(data(model))) * log(2π)
+    # projection component
+    ll += 0.5 * nobs(model) * (logdet(H_low) - logdet(H))
+    # GLS residual
+    et = similar(y_demeaned, size(data(model), 1))
+    for (t, yt) in pairs(eachcol(y_demeaned))
+        # filter component
+        ll -= 0.5 * (logdet(F[t]) + dot(v[t], F[t] \ v[t]))
+        # collapsed component
+        mul!(et, M, yt)
+        ll -= 0.5 * dot(et, Hinv, et)
     end
 
     return ll
@@ -406,7 +415,8 @@ function dof(model::DynamicFactorModel)
     R = size(process(model))
 
     # factor component
-    process(model) isa AbstractUnrestrictedFactorProcess && (k = sum(!iszero, loadings(model)) + R)
+    process(model) isa AbstractUnrestrictedFactorProcess &&
+        (k = sum(!iszero, loadings(model)) + R)
     process(model) isa UnrestrictedStationaryFull && (k += (R * (3R - 1)) ÷ 2)
     process(model) isa AbstractNelsonSiegelFactorProcess && (k = 1 + (R * (3R + 1)) ÷ 2)
     process(model) isa NelsonSiegelUnitRoot && (k -= (R * (3R - 1)) ÷ 2)
@@ -417,7 +427,7 @@ function dof(model::DynamicFactorModel)
     # error specification
     k += sum(!iszero, cov(errors(model)))
     if errors(model) isa Union{SpatialAutoregression, SpatialMovingAverage}
-        k += sum(!iszero, diff(spatial(errors(model))), init=0) + 1
+        k += sum(!iszero, diff(spatial(errors(model))), init = 0) + 1
     end
 
     return k
