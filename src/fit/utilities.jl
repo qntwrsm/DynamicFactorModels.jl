@@ -92,8 +92,19 @@ function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractM
 
         # factor dynamics
         for (r, f) in pairs(eachrow(factors(F)))
-            ϕi = dot(f[1:(end - 1)], f[2:end]) / sum(abs2, f[1:(end - 1)])
-            dynamics(F).diag[r] = max(-0.99, min(0.99, ϕi))
+            # objective function
+            function objective(x)
+                obj = zero(eltype(x))
+                for t in 2:nobs(model)
+                    obj += (f[t] - x * f[t - 1])^2
+                end
+
+                return obj
+            end
+
+            # optimize
+            res = optimize(objective, -1.0, 1.0)
+            dynamics(F).diag[r] = Optim.minimizer(res)
         end
     end
 
