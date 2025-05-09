@@ -160,15 +160,17 @@ with the simulated data, using random number generator `rng` and apply a burn-in
 function simulate(model::DynamicFactorModel; burn::Integer = 100,
                   rng::AbstractRNG = Xoshiro())
     # factor process
-    F_sim = simulate(process(model), burn = burn, rng = rng)
+    f = simulate(process(model), nobs(model) + burn, rng = rng)
+    F = copy(process(model))
+    factors(F) .= f[:, (burn + 1):end]
 
     # error distribution
-    ε_sim = simulate(errors(model), rng = rng)
+    e = simulate(errors(model), nobs(model), rng = rng)
 
     # simulate data
-    y_sim = mean(mean(model)) .+ loadings(model) * factors(F_sim) + resid(ε_sim)
+    y = mean(mean(model)) .+ loadings(F) * factors(F) + e
 
-    return DynamicFactorModel(y_sim, copy(mean(model)), ε_sim, F_sim)
+    return DynamicFactorModel(y, copy(mean(model)), copy(errors(model)), F)
 end
 
 """
