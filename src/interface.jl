@@ -97,7 +97,7 @@ function UnrestrictedStationary(dims::Dims; dependence::Symbol = :identified,
         F = UnrestrictedStationaryIdentified
     elseif dependence == :full
         ϕ = Matrix{type}(undef, R, R)
-        Σ = Matrix{type}(I, R, R)
+        Σ = Symmetric(Matrix{type}(I, R, R))
         F = UnrestrictedStationaryFull
     else
         throw(ArgumentError("dependence of factors $dependence not supported."))
@@ -131,7 +131,7 @@ function NelsonSiegelStationary(T::Integer, τ::AbstractVector; type::Type = Flo
     λ = 0.0609
     ϕ = Matrix{type}(undef, 3, 3)
     f = Matrix{type}(undef, 3, T)
-    Σ = Matrix{type}(I, 3, 3)
+    Σ = Symmetric(Matrix{type}(I, 3, 3))
 
     return NelsonSiegelStationary(λ, τ, f, ϕ, Σ)
 end
