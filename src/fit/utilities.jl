@@ -86,7 +86,7 @@ end
 function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
+        M = fit(PCA, y, maxoutdim = nfactors(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
 
@@ -113,7 +113,7 @@ end
 function init!(F::UnrestrictedStationaryFull, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
+        M = fit(PCA, y, maxoutdim = nfactors(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
 
@@ -134,7 +134,7 @@ end
 function init!(F::UnrestrictedUnitRoot, method::Symbol, y::AbstractMatrix)
     if method == :data
         # factors and loadings via PCA
-        M = fit(PCA, y, maxoutdim = size(F), pratio = 1.0)
+        M = fit(PCA, y, maxoutdim = nfactors(F), pratio = 1.0)
         loadings(F) .= projection(M)
         factors(F) .= predict(M, y)
 
