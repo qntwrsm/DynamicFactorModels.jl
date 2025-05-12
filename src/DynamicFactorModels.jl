@@ -37,6 +37,7 @@ using ProximalAlgorithms
 using TreeParzen
 
 using ProgressMeter
+using Logging
 
 using StatsAPI: aic, aicc, bic
 
@@ -69,6 +70,7 @@ export
     model_tuning_ic!, model_tuning_cv!,
     loglikelihood,
     dof, nobs, nfactors, aic, aicc, bic,
+    HP,                                     # re-export from TreeParzen for convenience
 
     # forecast
     forecast,

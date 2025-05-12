@@ -295,7 +295,13 @@ function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::F
     end
 
     # model tuning
-    best = fmin(objective, space, trials)
+    if verbose
+        best = best = fmin(objective, space, trials)
+    else
+        with_logger(NullLogger()) do
+            best = fmin(objective, space, trials)
+        end
+    end
 
     # refit
     fit!(model, regularizer = regularizer(best))
