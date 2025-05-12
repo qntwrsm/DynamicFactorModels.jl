@@ -133,7 +133,7 @@ function collapse(model::DynamicFactorModel; objective::Bool = false)
     ic = isapprox.(diag(F.R), 0.0, atol = 1e-8)
 
     # collapsing matrices
-    Z_basis = Z[:, .!ic]
+    Z_basis = loadings(model)[:, .!ic]
     if all(ic)
         A_low = I
     else
@@ -231,7 +231,7 @@ function _filter_smoother(y, d, Z, H, T, Q, a1, P1)
     ZtFinv = similar(y, typeof(P1))
 
     # initialize storage
-    F = similar(P1)
+    F = similar(H)
     att = similar(a1)
     Ptt = similar(P1)
 
@@ -272,10 +272,10 @@ system matrices.
 function _filter_likelihood(y, d, Z, H, T, Q, a1, P1)
     # initialize filter output
     v = similar(y)
-    F = similar(y, typeof(P1))
+    F = similar(y, typeof(H))
 
     # initialize storage
-    ZtFinv = similar(P1)
+    ZtFinv = similar(Z')
     att = similar(a1)
     Ptt = similar(P1)
 
@@ -338,7 +338,7 @@ function smoother(model::DynamicFactorModel)
 
         # backward recursion
         r .= ZtFinv[t] * v[t] + L' * r
-        N .= ZtFinv[t] * Z[t] + L' * N * L
+        N .= ZtFinv[t] * Z + L' * N * L
 
         # smoothing
         α[t] = a[t] + P[t] * r

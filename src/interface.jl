@@ -229,7 +229,7 @@ function fit!(model::DynamicFactorModel;
         obj = objective(model, regularizer)
 
         # non-decrease violation
-        if obj - obj_prev < 0
+        if obj - obj_prev < -1e-4
             violation = true
             if verbose
                 println("Objective function value decreased from $iter to $(iter + 1).")
