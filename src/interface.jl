@@ -264,66 +264,50 @@ function fit!(model::DynamicFactorModel;
 end
 
 """
-    model_tuning_ic!(model, regularizers; ic = :bic, parallel = false, verbose = false,
+    model_tuning_ic!(model, space, regularizer; trials = 100, ic = :bic, verbose = false,
                      kwargs...) -> (model_opt, index_opt)
 
-Search for the optimal regularizer in `regularizers` for the dynamic factor model `model`
-using information criterion `ic`. If `parallel` is true, the search is performed in
-parallel. If `verbose` is true, a summary of model tuning and progress of the search is
-printed. Additional keyword arguments `kwargs` are passed to the `fit!` function.
+Search for the optimal regularizer in search space `space` for the dynamic factor model
+`model` using information criterion `ic` and a Tree Parzen estimator performing number of
+trials given by `trials`, where `regularizer` is a function that creates the regularizer
+from a dictionary of hyperparameters. If `verbose` is true, a summary of model tuning and
+progress of the search is printed. Additional keyword arguments `kwargs` are passed to the
+`fit!` function.
 """
-function model_tuning_ic!(model::DynamicFactorModel, regularizers::AbstractArray;
-                          ic::Symbol = :bic, parallel::Bool = false, verbose::Bool = false,
+function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::Function;
+                          trials::Integer = 100, ic::Symbol = :bic, verbose::Bool = false,
                           kwargs...)
     ic ∉ (:aic, :aicc, :bic) && error("Information criterion $ic not supported.")
 
     if verbose
         println("Model tuning summary")
         println("====================")
-        println("Number of regularizers: $(length(regularizers))")
+        println("Number of trials: $trials")
         println("Information criterion: $ic")
-        println("Parallel: $(parallel ? "yes" : "no")")
         println("====================")
+    end
+
+    # objective function
+    function objective(params)
+        fit!(model, regularizer = regularizer(params))
+
+        return eval(ic)(model)
     end
 
     # model tuning
-    map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
-    θ0 = params(model)
-    f0 = copy(factors(model))
-    θ = map_func(regularizers) do regularizer
-        try
-            params!(model, θ0)
-            factors(model) .= f0
-            fit!(model, regularizer = regularizer; kwargs...)
-            params(model)
-        catch
-            missing
-        end
-    end
-    ic_values = map(θ) do θi
-        if all(ismissing.(θi))
-            missing
-        else
-            params!(model, θi)
-            eval(ic)(model)
-        end
-    end
-    (ic_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(ic_values))
-    params!(model, θ[index_opt])
-    (α, _, _) = smoother(model)
-    for (t, αt) in pairs(α)
-        factors(model)[:, t] = αt
-    end
+    best = fmin(objective, space, trials)
+
+    # refit
+    fit!(model, regularizer = regularizer(best))
 
     if verbose
         println("====================")
-        println("Optimal regularizer index: $(index_opt)")
-        println("Optimal information criterion: $(ic_opt)")
-        println("Failed fits: $(sum(ismissing.(ic_values)))")
+        println("Optimal regularizer: $best")
+        println("Optimal information criterion: $(eval(ic)(model))")
         println("====================")
     end
 
-    return (model, index_opt)
+    return (model, best)
 end
 
 """

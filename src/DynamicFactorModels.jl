@@ -34,6 +34,7 @@ using DifferentiationInterface: AutoFiniteDiff
 using ProximalCore
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
 using ProximalAlgorithms
+using TreeParzen
 
 using ProgressMeter
 
