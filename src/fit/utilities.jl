@@ -10,24 +10,6 @@ utilities.jl
 =#
 
 """
-    ObjectiveWrapper
-
-Wrapper for objective functions for gradient dispatching to finit differences.
-"""
-struct ObjectiveWrapper{F, C}
-    f::F
-    cache::C
-end
-
-(f::ObjectiveWrapper)(x) = f.f(x)
-
-function ProximalCore.gradient!(y, f::ObjectiveWrapper, x)
-    FiniteDiff.finite_difference_gradient!(y, f, x, f.cache)
-
-    return f(x)
-end
-
-"""
     ObjectiveGradientWrapper
 
 Wrapper for objective and gradient functions to dispatch to custom gradient
@@ -35,16 +17,12 @@ function.
 """
 struct ObjectiveGradientWrapper{F, G}
     f::F
-    g!::G
+    g::G
 end
 
 (f::ObjectiveGradientWrapper)(x) = f.f(x)
 
-function ProximalCore.gradient!(y, f::ObjectiveGradientWrapper, x)
-    f.g!(y, x)
-
-    return f(x)
-end
+ProximalAlgorithms.value_and_gradient(f::ObjectiveGradientWrapper, x) = (f(x), f.g(x))
 
 """
     init!(model, method)
@@ -423,7 +401,7 @@ function objective(model::DynamicFactorModel, regularizer::NamedTuple)
 end
 
 function dof(model::DynamicFactorModel)
-    R = size(process(model))
+    R = nfactors(model)
 
     # factor component
     process(model) isa AbstractUnrestrictedFactorProcess &&

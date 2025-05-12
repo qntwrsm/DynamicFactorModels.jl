@@ -79,14 +79,9 @@ function update_loadings!(F::AbstractUnrestrictedFactorProcess, y::AbstractMatri
 
         return (0.5 * dot(ΩΛ, Λ * Eff) - dot(ΩΛ, Eyf)) / length(V)
     end
-    function gradient!(∇::AbstractMatrix, Λ::AbstractMatrix)
-        ∇ .= Σ \ (Λ * Eff - Eyf)
-        ∇ ./= length(V)
-
-        return nothing
-    end
-    f = ObjectiveGradientWrapper(objective, gradient!)
-    ffb = FastForwardBackward(maxit = 100, tol = 1e-2)
+    gradient(Λ::AbstractMatrix) = (Σ \ (Λ * Eff - Eyf)) ./ length(V)
+    f = ObjectiveGradientWrapper(objective, gradient)
+    ffb = ProximalAlgorithms.FastForwardBackward(maxit = 1000, tol = 1e-4)
     (solution, _) = ffb(x0 = loadings(F), f = f, g = regularizer)
     loadings(F) .= solution
 
@@ -220,14 +215,9 @@ function update!(μ::Exogenous, y::AbstractMatrix, Σ::AbstractMatrix, regulariz
 
         return (0.5 * dot(Ωβ, β * XX) - dot(Ωβ, yX)) / size(regressors(μ), 2)
     end
-    function gradient!(∇::AbstractMatrix, β::AbstractMatrix)
-        ∇ .= Σ \ (β * XX - yX)
-        ∇ ./= size(regressors(μ), 2)
-
-        return nothing
-    end
-    f = ObjectiveGradientWrapper(objective, gradient!)
-    ffb = FastForwardBackward(maxit = 100, tol = 1e-2)
+    gradient(β::AbstractMatrix) = (Σ \ (β * XX - yX)) ./ size(regressors(μ), 2)
+    f = ObjectiveGradientWrapper(objective, gradient)
+    ffb = ProximalAlgorithms.FastForwardBackward(maxit = 1000, tol = 1e-4)
     (solution, _) = ffb(x0 = slopes(μ), f = f, g = regularizer)
     slopes(μ) .= solution
 
@@ -274,7 +264,7 @@ function update!(ε::SpatialAutoregression, e::AbstractMatrix, Λ::AbstractMatri
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(e, 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), ConjugateGradient(),
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS(),
                    Optim.Options(g_tol = 1e-4))
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
@@ -302,9 +292,8 @@ function update!(ε::SpatialAutoregression, e::AbstractMatrix, Λ::AbstractMatri
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(e, 2)
     end
-    cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
-    f = ObjectiveWrapper(objective, cache)
-    ffb = FastForwardBackward(maxit = 100, tol = 1e-2)
+    f = ProximalAlgorithms.AutoDifferentiable(objective, AutoFiniteDiff())
+    ffb = ProximalAlgorithms.FastForwardBackward(maxit = 1000, tol = 1e-4)
     (solution, _) = ffb(x0 = logit.((spatial(ε) .+ offset) ./ scale), f = f,
                         g = regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset
@@ -333,7 +322,7 @@ function update!(ε::SpatialMovingAverage, e::AbstractMatrix, Λ::AbstractMatrix
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(e, 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), ConjugateGradient(),
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS(),
                    Optim.Options(g_tol = 1e-4))
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
@@ -361,9 +350,8 @@ function update!(ε::SpatialMovingAverage, e::AbstractMatrix, Λ::AbstractMatrix
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(e, 2)
     end
-    cache = FiniteDiff.GradientCache(copy(spatial(ε)), copy(spatial(ε)))
-    f = ObjectiveWrapper(objective, cache)
-    ffb = FastForwardBackward(maxit = 100, tol = 1e-2)
+    f = ProximalAlgorithms.AutoDifferentiable(objective, AutoFiniteDiff())
+    ffb = ProximalAlgorithms.FastForwardBackward(maxit = 1000, tol = 1e-4)
     (solution, _) = ffb(x0 = logit.((spatial(ε) .+ offset) ./ scale), f = f,
                         g = regularizer)
     spatial(ε) .= scale .* logistic.(solution) .- offset

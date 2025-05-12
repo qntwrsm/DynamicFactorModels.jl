@@ -21,7 +21,7 @@ using Distributions: MvNormal
 
 using StatsAPI: StatisticalModel
 
-using MultivariateStats: PCA, projection, predict
+using MultivariateStats: PCA, fit, projection, predict
 
 using IrrationalConstants: log2π
 
@@ -30,9 +30,10 @@ using Distances: evaluate, Chebyshev
 using LogExpFunctions: logistic, logit
 using Optim
 using FiniteDiff
+using DifferentiationInterface: AutoFiniteDiff
 using ProximalCore
 using ProximalOperators: NormL1, NormL21, TotalVariation1D
-using ProximalAlgorithms: FastForwardBackward
+using ProximalAlgorithms
 
 using ProgressMeter
 
