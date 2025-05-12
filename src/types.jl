@@ -141,19 +141,12 @@ spatial(ε::SpatialAutoregression) = ε.ρ
 spatial(ε::SpatialMovingAverage) = ε.ρ
 weights(ε::SpatialAutoregression) = ε.W
 weights(ε::SpatialMovingAverage) = ε.W
-function poly(ε::SpatialAutoregression)
-    if length(spatial(ε)) == 1
-        return I - spatial(ε) .* weights(ε)
-    else
-        return I - Diagonal(spatial(ε)) * weights(ε)
-    end
-end
-function poly(ε::SpatialMovingAverage)
-    if length(spatial(ε)) == 1
-        return I + spatial(ε) .* weights(ε)
-    else
-        return I + Diagonal(spatial(ε)) * weights(ε)
-    end
+poly(ε::SpatialAutoregression) = poly(spatial(ε), weights(ε), :ar)
+poly(ε::SpatialMovingAverage) = poly(spatial(ε), weights(ε), :ma)
+function poly(ρ::AbstractVector, W::AbstractMatrix, type::Symbol)
+    common = length(ρ) == 1 ? ρ .* W : Diagonal(ρ) * W
+
+    return type == :ar ? I - common : I + common
 end
 Base.copy(ε::Simple) = Simple(copy(cov(Σ)))
 function Base.copy(ε::SpatialAutoregression)
