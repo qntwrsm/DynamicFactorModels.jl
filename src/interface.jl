@@ -265,7 +265,7 @@ end
 
 """
     model_tuning_ic!(model, space, regularizer; trials = 100, ic = :bic, verbose = false,
-                     kwargs...) -> (model_opt, index_opt)
+                     kwargs...) -> (model, best)
 
 Search for the optimal regularizer in search space `space` for the dynamic factor model
 `model` using information criterion `ic` and a Tree Parzen estimator performing number of
@@ -273,6 +273,11 @@ trials given by `trials`, where `regularizer` is a function that creates the reg
 from a dictionary of hyperparameters. If `verbose` is true, a summary of model tuning and
 progress of the search is printed. Additional keyword arguments `kwargs` are passed to the
 `fit!` function.
+
+The search space `space` should be provided as a dictionary where the values are HP
+functions to determine the sampling scheme for the Tree Parzen estimator. The HP module is
+re-exported from TreeParzen.jl for covenience, for more details on the implementation and
+options see https://github.com/IQVIA-ML/TreeParzen.jl.
 """
 function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::Function;
                           trials::Integer = 100, ic::Symbol = :bic, verbose::Bool = false,
@@ -317,29 +322,40 @@ function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::F
 end
 
 """
-    model_tuning_cv!(model, regularizers, blocks, periods; metric = :mse, parallel = false,
-                     verbose = false, kwargs...) -> (model_opt, index_opt)
+    model_tuning_cv!(model, space, regularizer, blocks, periods; trials = 100, metric = :mse,
+                     verbose = false, kwargs...) -> (model, best)
 
-Search for the optimal regularizer in `regularizers` for the dynamic factor
-model `model` using cross-validation with out-of-sample consisting of `blocks`
-blocks with `periods` period ahead forecasts and metric `metric`. If `parallel`
-is true, the search is performed in parallel. If `verbose` is true, a summary of
-model tuning and progress of the search is printed. Additional keyword arguments
-`kwargs` are passed to the `fit!` function.
+Search for the optimal regularizer in search space `space` for the dynamic factor model
+`model` using cross-validation with the out-of-sample consisting of `blocks` blocks with
+`periods` period ahead forecasts, metric `metric` and a Tree Parzen estimator performing
+number of trials given by `trials`, where `regularizer` is a function that creates the
+regularizer from a dictionary of hyperparameters. If `verbose` is true, a summary of model
+tuning and progress of the search is printed. Additional keyword arguments `kwargs` are
+passed to the `fit!` function.
+
+The search space `space` should be provided as a dictionary where the values are HP
+functions to determine the sampling scheme for the Tree Parzen estimator. The HP module is
+re-exported from TreeParzen.jl for covenience, for more details on the implementation and
+options see https://github.com/IQVIA-ML/TreeParzen.jl.
 """
-function model_tuning_cv!(model::DynamicFactorModel, regularizers::AbstractArray,
-                          blocks::Integer, periods::Integer; metric::Symbol = :mse,
-                          parallel::Bool = false, verbose::Bool = false, kwargs...)
-    metric ∉ (:mse, :mae) && error("Accuracy matric $metric not supported.")
+function model_tuning_cv!(model::DynamicFactorModel, space::Dict, regularizer::Function,
+                          blocks::Integer, periods::Integer; trials::Integer = 100,
+                          metric::Symbol = :mse, verbose::Bool = false, kwargs...)
+    if metric == :mse
+        loss_function = abs2
+    elseif metric == :mae
+        loss_function = abs
+    else
+        error("Accuracy matric $metric not supported.")
+    end
 
     if verbose
         println("Model tuning summary")
         println("====================")
-        println("Number of regularizers: $(length(regularizers))")
+        println("Number of trials: $trials")
         println("Number of out-of-sample blocks: $blocks")
         println("Forecast periods per block: $periods")
         println("Forecast accuracy metric: $metric")
-        println("Parallel: $(parallel ? "yes" : "no")")
         println("====================")
     end
 
@@ -349,53 +365,45 @@ function model_tuning_cv!(model::DynamicFactorModel, regularizers::AbstractArray
     train_model = select_sample(model, 1:Ttrain)
     test_models = [select_sample(model, 1:t) for t in Ttrain:(T - periods)]
 
+    # objective function
+    function objective(params)
+
+        # fit on train sample
+        fit!(train_model, regularizer = regularizer(params))
+        θ = params(train_model)
+
+        # evaluate on test samples
+        loss = zero(eltype(data(model)))
+        for (t, test_model) in pairs(test_models)
+            # out-of-sample data
+            y = view(data(model), :, (Ttrain + t):(Ttrain + t + periods - 1))
+            # loss
+            params!(test_model, θ)
+            loss += sum(loss_function, y - forecast(test_model, periods))
+        end
+
+        return loss / (n * length(test_models) * periods)
+    end
+
     # model tuning
-    map_func = parallel ? verbose ? progress_pmap : pmap : verbose ? progress_map : map
-    θ0 = params(model)
-    f0 = factors(model)[:, 1:Ttrain]
-    θ = map_func(regularizers) do regularizer
-        try
-            params!(train_model, θ0)
-            factors(train_model) .= f0
-            fit!(train_model, regularizer = regularizer; kwargs...)
-            params(train_model)
-        catch
-            missing
+    if verbose
+        best = fmin(objective, space, trials)
+    else
+        with_logger(NullLogger()) do
+            best = fmin(objective, space, trials)
         end
     end
-    avg_loss = map(θ) do θi
-        if all(ismissing.(θi))
-            missing
-        else
-            loss = zero(eltype(data(model)))
-            for (t, test_model) in pairs(test_models)
-                params!(test_model, θi)
-                oos_range = (Ttrain + t):(Ttrain + t + periods - 1)
-                if metric == :mse
-                    loss += sum(abs2,
-                                view(data(model), :, oos_range) -
-                                forecast(test_model, periods))
-                elseif metric == :mae
-                    loss += sum(abs,
-                                view(data(model), :, oos_range) -
-                                forecast(test_model, periods))
-                end
-            end
-            loss / (n * length(test_models) * periods)
-        end
-    end
-    (avg_loss_opt, index_opt) = findmin(x -> isnan(x) ? Inf : x, skipmissing(avg_loss))
-    fit!(model, regularizer = regularizers[index_opt]; kwargs...)
+
+    # refit
+    fit!(model, regularizer = regularizer(best))
 
     if verbose
         println("====================")
-        println("Optimal regularizer index: $(index_opt)")
-        println("Optimal forecast accuracy: $(avg_loss_opt)")
-        println("Failed fits: $(sum(ismissing.(avg_loss)))")
+        println("Optimal regularizer: $best")
         println("====================")
     end
 
-    return (model, index_opt)
+    return (model, best)
 end
 
 """
