@@ -296,7 +296,7 @@ function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::F
 
     # model tuning
     if verbose
-        best = best = fmin(objective, space, trials)
+        best = fmin(objective, space, trials)
     else
         with_logger(NullLogger()) do
             best = fmin(objective, space, trials)
