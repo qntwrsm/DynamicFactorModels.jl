@@ -144,7 +144,7 @@ function collapse(model::DynamicFactorModel; objective::Bool = false)
     y_low = [A_low * yt for yt in eachcol(data(model))]
     Z_low = A_low * loadings(model)
     if mean(model) isa ZeroMean
-        d_low = [Zeros(mean(model).type, nfactors(model)) for _ in 1:nobs(model)]
+        d_low = [Zeros(mean(model).type, size(Z_low, 1)) for _ in 1:nobs(model)]
     elseif mean(model) isa Exogenous
         d_low = [A_low * μt for μt in eachcol(mean(mean(model)))]
     end
