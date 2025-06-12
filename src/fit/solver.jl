@@ -264,7 +264,7 @@ function update!(ε::SpatialAutoregression, e::AbstractMatrix, Λ::AbstractMatri
 
         return -logdet(G) + 0.5 * dot(Ω, Eee) / size(e, 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS(),
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), ConjugateGradient(),
                    Optim.Options(g_tol = 1e-4))
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
@@ -322,7 +322,7 @@ function update!(ε::SpatialMovingAverage, e::AbstractMatrix, Λ::AbstractMatrix
 
         return logdet(G) + 0.5 * tr(Σ \ Eee) / size(e, 2)
     end
-    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), LBFGS(),
+    opt = optimize(objective, logit.((spatial(ε) .+ offset) ./ scale), ConjugateGradient(),
                    Optim.Options(g_tol = 1e-4))
     spatial(ε) .= scale .* logistic.(Optim.minimizer(opt)) .- offset
 
