@@ -38,15 +38,15 @@ end
 Select a sample `sample` of the data from the dynamic factor process `F`.
 """
 function select_sample(F::UnrestrictedStationaryIdentified, sample::AbstractUnitRange)
-    UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)),
+    UnrestrictedStationary((size(loadings(F), 1), length(sample), nfactors(F)),
                            dependence = :identified, type = eltype(factors(F)))
 end
 function select_sample(F::UnrestrictedStationaryFull, sample::AbstractUnitRange)
-    UnrestrictedStationary((size(loadings(F), 1), length(sample), size(F)),
+    UnrestrictedStationary((size(loadings(F), 1), length(sample), nfactors(F)),
                            dependence = :full, type = eltype(factors(F)))
 end
 function select_sample(F::UnrestrictedUnitRoot, sample::AbstractUnitRange)
-    UnrestrictedUnitRoot((size(loadings(F), 1), length(sample), size(F)),
+    UnrestrictedUnitRoot((size(loadings(F), 1), length(sample), nfactors(F)),
                          type = eltype(factors(F)))
 end
 function select_sample(F::NelsonSiegelStationary, sample::AbstractUnitRange)
@@ -63,7 +63,7 @@ Simulate the dynamic factors from the dynamic factor process `F` `S` times using
 number generator `rng`.
 """
 function simulate(F::AbstractFactorProcess, S::Integer; rng::AbstractRNG = Xoshiro())
-    R = size(loadings(F), 2)
+    R = nfactors(F)
     f = similar(factors(F), R, S)
     dist = MvNormal(cov(F))
     for (s, fs) in pairs(eachcol(f))
@@ -186,7 +186,7 @@ function filter(model::DynamicFactorModel; predict::Bool = false)
     F = similar(y, typeof(P1))
 
     # initialize storage
-    ZtFinv = similar(P1)
+    ZtFinv = similar(Z')
     att = similar(a1)
     Ptt = similar(P1)
 

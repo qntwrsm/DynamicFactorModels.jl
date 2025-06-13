@@ -42,7 +42,7 @@ using Logging
 using StatsAPI: aic, aicc, bic
 
 import Statistics: mean, var, cov
-import StatsAPI: params, params!, fit!, loglikelihood, dof, nobs
+import StatsAPI: fit!, loglikelihood, dof, nobs
 import ProximalOperators: prox!
 
 export

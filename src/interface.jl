@@ -370,7 +370,7 @@ function model_tuning_cv!(model::DynamicFactorModel, space::Dict, regularizer::F
 
         # fit on train sample
         fit!(train_model, regularizer = regularizer(params))
-        θ = params(train_model)
+        θ = get_params(train_model)
 
         # evaluate on test samples
         loss = zero(eltype(data(model)))
@@ -378,7 +378,7 @@ function model_tuning_cv!(model::DynamicFactorModel, space::Dict, regularizer::F
             # out-of-sample data
             y = view(data(model), :, (Ttrain + t):(Ttrain + t + periods - 1))
             # loss
-            params!(test_model, θ)
+            set_params!(test_model, θ)
             loss += sum(loss_function, y - forecast(test_model, periods))
         end
 
@@ -415,7 +415,7 @@ function forecast(model::DynamicFactorModel, periods::Integer)
     # filter
     (a, _, _, _) = filter(model, predict = true)
     a_hat = similar(a[end])
-    forecasts = similar(data(model), size(model)[1], periods)
+    forecasts = similar(data(model), size(data(model), 1), periods)
 
     # forecast mean
     μ_hat = forecast(mean(model), periods)

@@ -194,7 +194,7 @@ function init!(ε::SpatialMovingAverage, method::Symbol, ξ::AbstractMatrix)
     return nothing
 end
 
-function params(model::DynamicFactorModel)
+function get_params(model::DynamicFactorModel)
     n = size(data(model), 1)
     R = nfactors(model)
 
@@ -210,12 +210,12 @@ function params(model::DynamicFactorModel)
 
     # parameters
     θ = zeros(n_params)
-    params!(θ, model)
+    get_params!(θ, model)
 
     return θ
 end
 
-function params!(θ::AbstractVector, model::DynamicFactorModel)
+function get_params!(θ::AbstractVector, model::DynamicFactorModel)
     idx = 1
 
     # loadings
@@ -284,7 +284,7 @@ function params!(θ::AbstractVector, model::DynamicFactorModel)
 
     return nothing
 end
-function params!(model::DynamicFactorModel, θ::AbstractVector)
+function set_params!(model::DynamicFactorModel, θ::AbstractVector)
     idx = 1
 
     # loadings
@@ -310,8 +310,7 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        vec(cov(process(model)).mat) .= view(θ, idx:(idx + offset - 1))
-        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
+        vec(cov(process(model)).data) .= view(θ, idx:(idx + offset - 1))
         idx += offset
     elseif process(model) isa UnrestrictedUnitRoot
         # variance
@@ -325,8 +324,7 @@ function params!(model::DynamicFactorModel, θ::AbstractVector)
         idx += offset
         # variance
         offset = length(cov(process(model)))
-        vec(cov(process(model)).mat) .= view(θ, idx:(idx + offset - 1))
-        cov(process(model)).chol.factors .= cholesky(Hermitian(cov(process(model)).mat)).factors
+        vec(cov(process(model)).data) .= view(θ, idx:(idx + offset - 1))
         idx += offset
     elseif process(model) isa NelsonSiegelUnitRoot
         # variance
