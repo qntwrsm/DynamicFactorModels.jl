@@ -148,7 +148,7 @@ function poly(ρ::AbstractVector, W::AbstractMatrix, type::Symbol)
 
     return type == :ar ? I - common : I + common
 end
-Base.copy(ε::Simple) = Simple(copy(cov(Σ)))
+Base.copy(ε::Simple) = Simple(copy(cov(ε)))
 function Base.copy(ε::SpatialAutoregression)
     SpatialAutoregression(copy(spatial(ε)), ε.ρmax, copy(weights(ε)), copy(cov(ε)))
 end
