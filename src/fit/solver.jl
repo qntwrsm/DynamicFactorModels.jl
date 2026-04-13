@@ -119,8 +119,8 @@ function update_dynamics!(F::UnrestrictedStationaryIdentified, V::AbstractVector
     for r in 1:nfactors(F)
         num = denom = zero(eltype(factors(F)))
         for t in eachindex(Γ)
-            num += factors(F)[r, t + 1] * factors(F)[r, t] + Γ[t]
-            denom += factors(F)[r, t]^2 + V[t]
+            num += factors(F)[r, t + 1] * factors(F)[r, t] + Γ[t][r, r]
+            denom += factors(F)[r, t]^2 + V[t][r, r]
         end
         dynamics(F).diag[r] = num / denom
     end
@@ -150,9 +150,9 @@ function update_dynamics!(F::UnrestrictedUnitRoot, V::AbstractVector, Γ::Abstra
         for t in eachindex(Γ)
             flag = factors(F)[r, t]
             flead = factors(F)[r, t + 1]
-            Eflfl += flag^2 + V[t]
-            Effl += flead * flag + Γ[t]
-            Eff += flead^2 + V[t + 1]
+            Eflfl += flag^2 + V[t][r, r]
+            Effl += flead * flag + Γ[t][r, r]
+            Eff += flead^2 + V[t + 1][r, r]
         end
         cov(F).diag[r] = (Eff - 2.0 * Effl + Eflfl) / length(Γ)
     end
@@ -181,9 +181,9 @@ function update_dynamics!(F::NelsonSiegelUnitRoot, V::AbstractVector, Γ::Abstra
         for t in eachindex(Γ)
             flag = factors(F)[r, t]
             flead = factors(F)[r, t + 1]
-            Eflfl += flag^2 + V[t]
-            Effl += flead * flag + Γ[t]
-            Eff += flead^2 + V[t + 1]
+            Eflfl += flag^2 + V[t][r, r]
+            Effl += flead * flag + Γ[t][r, r]
+            Eff += flead^2 + V[t + 1][r, r]
         end
         cov(F).diag[r] = (Eff - 2.0 * Effl + Eflfl) / length(Γ)
     end
