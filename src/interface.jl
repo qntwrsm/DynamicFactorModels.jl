@@ -93,17 +93,16 @@ function UnrestrictedStationary(dims::Dims; dependence::Symbol = :identified,
 
     if dependence == :identified
         ϕ = Diagonal{type}(undef, R)
-        Σ = one(type)I(R)
-        F = UnrestrictedStationaryIdentified
+
+        return UnrestrictedStationaryIdentified(Λ, f, ϕ)
     elseif dependence == :full
         ϕ = Matrix{type}(undef, R, R)
         Σ = Symmetric(Matrix{type}(I, R, R))
-        F = UnrestrictedStationaryFull
+        
+        return UnrestrictedStationaryFull(Λ, f, ϕ, Σ)
     else
         throw(ArgumentError("dependence of factors $dependence not supported."))
     end
-
-    return F(Λ, f, ϕ, Σ)
 end
 
 """
