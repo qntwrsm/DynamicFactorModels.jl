@@ -73,7 +73,7 @@ function init!(F::UnrestrictedStationaryIdentified, method::Symbol, y::AbstractM
             # objective function
             function objective(x)
                 obj = zero(eltype(x))
-                for t in 2:nobs(model)
+                for t in Iterators.drop(eachindex(f), 1)
                     obj += (f[t] - x * f[t - 1])^2
                 end
 
