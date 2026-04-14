@@ -396,6 +396,7 @@ function model_tuning_cv!(model::DynamicFactorModel, space::Dict, regularizer::F
             end
             # Return infinity to penalize this parameter set
             return Inf
+        end
     end
 
     # model tuning
