@@ -293,9 +293,17 @@ function model_tuning_ic!(model::DynamicFactorModel, space::Dict, regularizer::F
 
     # objective function
     function objective(params)
-        fit!(model, regularizer = regularizer(params))
+        try
+            fit!(model, regularizer = regularizer(params))
 
-        return eval(ic)(model)
+            return eval(ic)(model)
+        catch e
+            if verbose
+                @warn "Fit failed for params: $params. Error: $e"
+            end
+            # Return infinity so the optimizer discards this configuration
+            return Inf
+        end
     end
 
     # model tuning
@@ -366,22 +374,28 @@ function model_tuning_cv!(model::DynamicFactorModel, space::Dict, regularizer::F
 
     # objective function
     function objective(params)
+        try
+            # fit on train sample
+            fit!(train_model, regularizer = regularizer(params))
+            θ = get_params(train_model)
 
-        # fit on train sample
-        fit!(train_model, regularizer = regularizer(params))
-        θ = get_params(train_model)
+            # evaluate on test samples
+            loss = zero(eltype(data(model)))
+            for (t, test_model) in pairs(test_models)
+                # out-of-sample data
+                y = view(data(model), :, (Ttrain + t):(Ttrain + t + periods - 1))
+                # loss
+                set_params!(test_model, θ)
+                loss += sum(loss_function, y - forecast(test_model, periods))
+            end
 
-        # evaluate on test samples
-        loss = zero(eltype(data(model)))
-        for (t, test_model) in pairs(test_models)
-            # out-of-sample data
-            y = view(data(model), :, (Ttrain + t):(Ttrain + t + periods - 1))
-            # loss
-            set_params!(test_model, θ)
-            loss += sum(loss_function, y - forecast(test_model, periods))
-        end
-
-        return loss / (n * length(test_models) * periods)
+            return loss / (n * length(test_models) * periods)
+        catch e
+            if verbose
+                @warn "CV evaluation failed for params: $params. Error: $e"
+            end
+            # Return infinity to penalize this parameter set
+            return Inf
     end
 
     # model tuning
